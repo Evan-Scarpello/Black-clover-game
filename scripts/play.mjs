@@ -1,0 +1,58 @@
+// Scripted playthrough screenshots: node scripts/play.mjs <outdir>
+import { chromium } from 'playwright-core';
+const out = process.argv[2] ?? 'screenshots';
+const url = process.argv[3] ?? 'http://localhost:5173/';
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const errors = [];
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+page.on('pageerror', (e) => errors.push(e.message));
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.evaluate(() => localStorage.clear());
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(600);
+const shot = async (name) => { await page.screenshot({ path: `${out}/${name}.png` }); console.log('shot', name); };
+await shot('01-tutorial');
+for (let i = 0; i < 3; i++) { await page.locator('.tutorial .btn').click(); await page.waitForTimeout(250); }
+await page.waitForTimeout(400);
+await shot('02-home');
+await page.locator('.nav-item', { hasText: 'Summon' }).click();
+await page.waitForTimeout(500);
+await shot('03-summon');
+await page.locator('.pull-btns .btn').nth(1).click();
+await page.waitForTimeout(600);
+await shot('04-reveal-book');
+await page.waitForTimeout(1500);
+for (let i = 0; i < 4; i++) { if (await page.locator('.splash').count()) { await shot(`05-splash-${i}`); await page.locator('.splash').click(); await page.waitForTimeout(400); } }
+await page.waitForTimeout(1600);
+await shot('06-reveal-cards');
+await page.locator('.reveal .btn.dark').click();
+await page.locator('.nav-item', { hasText: 'Heroes' }).click();
+await page.waitForTimeout(500);
+await shot('07-heroes');
+await page.locator('.hero-grid .hero-card').first().click();
+await page.waitForTimeout(500);
+await shot('08-hero-detail');
+await page.locator('.modal-close').click();
+await page.locator('.nav-item', { hasText: 'Squad' }).click();
+await page.waitForTimeout(400);
+await page.locator('.btn', { hasText: 'Auto-Fill' }).click();
+await page.waitForTimeout(400);
+await shot('09-squad');
+await page.locator('.nav-item', { hasText: 'Battle' }).click();
+await page.waitForTimeout(400);
+await shot('10-campaign');
+await page.locator('.btn.red.big').click();
+await page.waitForTimeout(800);
+await shot('11-story');
+for (let i = 0; i < 4; i++) { if (await page.locator('.story').count()) { await page.locator('.story').click(); await page.waitForTimeout(350); } }
+await page.waitForTimeout(1500);
+await shot('12-battle-a');
+await page.waitForTimeout(2500);
+await shot('13-battle-b');
+await page.waitForTimeout(3500);
+await shot('14-battle-c');
+await page.waitForTimeout(12000);
+await shot('15-battle-end');
+console.log('errors:', errors.length ? errors.join('\n') : 'none');
+await browser.close();

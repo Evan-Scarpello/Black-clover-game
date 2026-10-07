@@ -1,0 +1,32 @@
+{
+  "name": "black-clover-grimoire-squads",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "npm run build && cap sync",
+    "cap:android": "npm run build && cap sync android && cap open android",
+    "cap:ios": "npm run build && cap sync ios && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/ios": "^7.6.9",
+    "@fontsource/bangers": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
+    "@preact/preset-vite": "^2.10.6",
+    "playwright-core": "^1.56.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.7",
+    "vitest": "^3.2.7"
+  }
+}

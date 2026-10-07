@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Grimoire Squads</string>
+    <string name="title_activity_main">Grimoire Squads</string>
+    <string name="package_name">com.fanmade.grimoiresquads</string>
+    <string name="custom_url_scheme">com.fanmade.grimoiresquads</string>
+</resources>
