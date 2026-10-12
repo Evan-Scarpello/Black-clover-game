@@ -20,9 +20,30 @@ export function getState(): SaveState {
   return state;
 }
 
-export function commit() {
+const commitHooks = new Set<() => void>();
+
+/** Run after every progress-changing commit (used by the cloud save). */
+export function onCommit(fn: () => void) {
+  commitHooks.add(fn);
+}
+
+/** Save locally and notify the UI without marking new progress. */
+function commitQuiet() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => writeSave(state), 250);
+  listeners.forEach((l) => l());
+}
+
+export function commit() {
+  state.updatedAt = Date.now();
+  commitQuiet();
+  commitHooks.forEach((h) => h());
+}
+
+/** Swap in a save from elsewhere (cloud copy or a hot reload snapshot). */
+export function replaceState(next: SaveState) {
+  state = next;
+  writeSave(state);
   listeners.forEach((l) => l());
 }
 
@@ -55,7 +76,7 @@ export function startSession(now = Date.now()): number {
   const away = now - state.lastSeen;
   refreshDay(state, now);
   state.lastSeen = now;
-  commit();
+  commitQuiet();
   return away;
 }
 
@@ -313,4 +334,5 @@ export function resetGame() {
   refreshDay(state);
   writeSave(state);
   listeners.forEach((l) => l());
+  commitHooks.forEach((h) => h());
 }

@@ -131,6 +131,7 @@ export function Home({ nav }: { nav: Nav }) {
             BLACK CLOVER
             <em>GRIMOIRE SQUADS</em>
           </h1>
+          <span class="fan-tag">Unofficial fan game</span>
         </div>
         <div class="home-squad">
           {squadIds.slice(1, 3).map((id) => (

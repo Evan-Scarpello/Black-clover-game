@@ -741,6 +741,20 @@ h3,
   transform: rotate(-2deg);
 }
 
+.fan-tag {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
 .home-title h1 em {
   font-style: normal;
   color: var(--green);

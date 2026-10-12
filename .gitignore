@@ -5,3 +5,4 @@ dist
 /android/app/build
 /ios/App/Pods
 screenshots/
+dist-artifact

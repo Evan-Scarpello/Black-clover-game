@@ -17,6 +17,8 @@ export interface Settings {
 export interface SaveState {
   version: 1;
   createdAt: number;
+  /** Last real progress change (drives cloud-save conflict resolution). */
+  updatedAt: number;
   lastSeen: number;
   lastAfkClaim: number;
   currencies: Currencies;
@@ -47,6 +49,7 @@ export function newSave(now = Date.now()): SaveState {
   return {
     version: 1,
     createdAt: now,
+    updatedAt: now,
     lastSeen: now,
     lastAfkClaim: now,
     currencies: { yul: 8000, essence: 5000, gems: 3000, tickets: 10 },
@@ -81,6 +84,13 @@ export function migrate(raw: any): SaveState {
   };
 }
 
+let fresh = false;
+
+/** True when this session started from a brand-new save (nothing on this device). */
+export function startedFresh(): boolean {
+  return fresh;
+}
+
 export function loadSave(): SaveState {
   try {
     const txt = localStorage.getItem(SAVE_KEY);
@@ -88,6 +98,7 @@ export function loadSave(): SaveState {
   } catch {
     /* corrupted or unavailable storage — start fresh */
   }
+  fresh = true;
   return newSave();
 }
 
