@@ -1,6 +1,6 @@
 // Body, outfits, arms, legs and squad robes.
 import type { JSX } from 'preact';
-import { OUT, SW, Pt, spline, mirrorPts, shade, tint, leavesPath, spikeRing } from './core';
+import { OUT, SW, Pt, spline, mirrorPts, shade, tint, leavesPath, spikeRing, ell } from './core';
 import type { Spec, Squad, Build } from './types';
 
 type El = JSX.Element;
@@ -33,6 +33,12 @@ export const SQUADS: Record<Squad, SquadDef> = {
   bandit: { cape: '#5a4636', lining: '#3a2c22', trim: '#8a6a4a', emblem: 'none' },
   dark: { cape: '#2a2236', lining: '#17121f', trim: '#6a5a80', emblem: 'none' },
   none: { cape: '#444', lining: '#222', trim: '#888', emblem: 'none' },
+  royal: { cape: '#fcf8ee', lining: '#c99a2e', trim: '#fff3c4', trim2: '#e6b43a', emblem: 'clover' },
+  devil: { cape: '#1e1728', lining: '#4a1f78', trim: '#d9a62c', trim2: '#9a5ae6', emblem: 'suneye' },
+  mantis: { cape: '#3a8f3c', lining: '#1d4a22', trim: '#d8ec6a', emblem: 'mantis' },
+  peacock: { cape: '#ff8a7c', lining: '#c4505c', trim: '#fff2c8', trim2: '#3cb4ac', emblem: 'peacock' },
+  deer: { cape: '#27a9a2', lining: '#145e5a', trim: '#f4e6a8', emblem: 'deer' },
+  judge: { cape: '#1c1820', lining: '#5a1a22', trim: '#e0b03a', emblem: 'scales' },
 };
 
 // ---------------------------------------------------------------- emblems
@@ -113,6 +119,37 @@ export function emblem(kind: string, x: number, y: number, s = 1): El | null {
           <path d="M0 -4.2L1.2 0L0 4.2" fill="none" stroke="#5ab8d8" stroke-width={0.6} />
         </g>
       );
+    case 'mantis':
+      return (
+        <g transform={t} stroke-width={sw}>
+          <path d="M-1.4 -2.6L-3.4 -5.6M1.4 -2.6L3.4 -5.6" fill="none" stroke="#d8ec6a" stroke-width={0.9} />
+          <path d="M-4 -2.6Q0 -4.2 4 -2.6L0 4Z" fill="#d8ec6a" />
+          <circle cx={-2} cy={-2} r={1.1} fill="#2a5a22" stroke="none" />
+          <circle cx={2} cy={-2} r={1.1} fill="#2a5a22" stroke="none" />
+        </g>
+      );
+    case 'peacock':
+      return (
+        <g transform={t} stroke-width={sw}>
+          <path d="M0 -4.8Q3.6 -1 2.8 1.8Q1.8 4.2 0 4.4Q-1.8 4.2 -2.8 1.8Q-3.6 -1 0 -4.8Z" fill="#3cb4ac" />
+          <ellipse cx={0} cy={1.2} rx={1.7} ry={2.2} fill="#2a5ac8" stroke="none" />
+          <circle cx={0} cy={1.6} r={0.9} fill="#f2c94a" stroke="none" />
+        </g>
+      );
+    case 'deer':
+      return (
+        <g transform={t} stroke-width={sw}>
+          <path d="M-1.2 -1L-3.2 -4.6M-2.4 -3L-4.8 -3.2M1.2 -1L3.2 -4.6M2.4 -3L4.8 -3.2" fill="none" stroke="#f4e6a8" stroke-width={1.1} />
+          <path d="M-2 -1.2Q0 -2.4 2 -1.2L1 3.6Q0 4.4 -1 3.6Z" fill="#f4e6a8" />
+        </g>
+      );
+    case 'scales':
+      return (
+        <g transform={t} fill="none" stroke="#e0b03a" stroke-width={0.9}>
+          <path d="M0 -4.2L0 3.6M-2.4 3.8L2.4 3.8M-4 -2.4L4 -2.4M-4 -2.4L-5 0.6M-4 -2.4L-3 0.6M4 -2.4L3 0.6M4 -2.4L5 0.6" />
+          <path d="M-5.4 0.6Q-4 2.2 -2.6 0.6ZM2.6 0.6Q4 2.2 5.4 0.6Z" fill="#e0b03a" />
+        </g>
+      );
     case 'clover':
       return <path transform={t} fill="#e2ad35" stroke-width={0.6} d={leavesPath(3, 2.2, 0)} />;
   }
@@ -189,6 +226,12 @@ export function torso(spec: Spec, uid: string): El {
       <path key="fold" d={`M${44} 92Q${43} 104 ${41.6} 112M${57} 92Q${58.4} 104 ${59.6} 112`} fill="none" stroke={shade(top, 0.4)} stroke-width={1.1} />,
       <path key="o" d={d} fill="none" />,
     );
+    if (o.ornate) {
+      els.push(
+        <path key="orn" d={`M${50 - s - 5.4} 105.6Q50 109.6 ${50 + s + 5.4} 105.6M40 98Q44 95 46 99Q44 101 42.6 99.6M60 98Q56 95 54 99Q56 101 57.4 99.6`} fill="none" stroke={acc} stroke-width={1.5} />,
+        <path key="gem" d="M50 61.2L52.2 64L50 66.8L47.8 64Z" fill={o.belt || acc} stroke-width={1.1} />,
+      );
+    }
     return <g>{els}</g>;
   }
 
@@ -222,6 +265,14 @@ export function torso(spec: Spec, uid: string): El {
   }
   els.push(<g key="in" clip-path={`url(#${cid})`} stroke="none">{inner}</g>);
   els.push(<path key="o" d={d} fill="none" />);
+  if (o.ornate) {
+    els.push(
+      <g key="orn" fill={acc} stroke-width={0.8}>
+        <path d={`${ell(46.4, 70.4, 1.1, 1.1)}${ell(53.6, 70.4, 1.1, 1.1)}${ell(46.4, 76.4, 1.1, 1.1)}${ell(53.6, 76.4, 1.1, 1.1)}`} />
+        <path d="M46.4 70.4Q50 73 53.6 70.4" fill="none" stroke={acc} stroke-width={0.9} />
+      </g>,
+    );
+  }
 
   if (o.style === 'dress') {
     const w = b.wa;
@@ -322,6 +373,9 @@ export function capeBack(spec: Spec): El | null {
     <g>
       <path d={d} fill={sq.lining} />
       <path d={`M${50 - s - 4} 74Q${50 - s - 6} 90 ${50 - s - fl + 3.4} ${bottom - 3}M${50 + s + 4} 74Q${50 + s + 6} 90 ${50 + s + fl - 3.4} ${bottom - 3}`} fill="none" stroke={shade(sq.lining, 0.35)} stroke-width={1.2} />
+      {spec.outfit.ornate ? (
+        <path d={`M${50 - s - 2.2} 63Q${50 - s - 7.6} 80 ${50 - s - fl + 2} ${bottom - 1.6}M${50 + s + 2.2} 63Q${50 + s + 7.6} 80 ${50 + s + fl - 2} ${bottom - 1.6}`} fill="none" stroke={sq.trim2 || sq.trim} stroke-width={1.8} />
+      ) : null}
     </g>
   );
 }

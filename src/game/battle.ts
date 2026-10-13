@@ -3,10 +3,10 @@
 // paths just run it to completion.
 
 import { getHero } from '../data/heroes';
-import { addMods, applyMods, rawStats } from './stats';
+import { addMods, applyMods, rawStats, statPower } from './stats';
 import { rng as makeRng, type Rng } from './rng';
 import { teamBonuses } from './team';
-import type { Effect, FormationDef, HeroDef, Row, StatMods, Stats, StatusId, TargetSel } from './types';
+import type { Effect, FormationDef, HeroDef, ReformMode, Row, StatMods, Stats, StatusId, TargetSel } from './types';
 
 export interface Combatant {
   heroId: string;
@@ -59,6 +59,8 @@ export interface Unit {
   dmgDealt: number;
   dmgTaken: number;
   healDone: number;
+  /** Hero ids of teammates who share an active bond with this unit (target 'allyBond'). */
+  bondMates: string[];
 }
 
 export type BattleEvent =
@@ -81,7 +83,9 @@ export const TIME_LIMIT = 90;
 /** After this many seconds healing is halved and damage ramps up to break stalemates. */
 export const OVERTIME = 45;
 const DEF_K = 300;
-const BUFFS: StatusId[] = ['atkUp', 'defUp', 'spdUp', 'regen', 'taunt', 'reflect', 'fate'];
+const BUFFS: StatusId[] = ['atkUp', 'defUp', 'spdUp', 'regen', 'taunt', 'reflect', 'fate', 'shroud'];
+/** Statuses lasting longer than this are whole-battle auras: never dispelled and never merged with timed copies. */
+const PERMANENT = 900;
 const DEBUFFS: StatusId[] = ['stun', 'silence', 'burn', 'poison', 'bleed', 'atkDown', 'defDown', 'spdDown', 'mark'];
 const DOTS: StatusId[] = ['burn', 'poison', 'bleed'];
 
@@ -112,7 +116,8 @@ export class Battle {
   }
 
   private build(team: TeamSetup, side: 0 | 1) {
-    const bonus = teamBonuses(team.members.map((m) => m.heroId));
+    const ids = team.members.map((m) => m.heroId);
+    const bonus = teamBonuses(ids);
     for (const m of team.members) {
       const def = getHero(m.heroId);
       const raw = rawStats(def, m.level, m.stars);
@@ -161,6 +166,9 @@ export class Battle {
         dmgDealt: 0,
         dmgTaken: 0,
         healDone: 0,
+        bondMates: [
+          ...new Set(bonus.bonds.filter((b) => b.heroes.includes(m.heroId)).flatMap((b) => b.heroes.filter((h) => h !== m.heroId && ids.includes(h)))),
+        ],
       };
       u.cd = (ACTION_INTERVAL * (0.25 + this.rand() * 0.6) * 100) / this.stat(u).spd;
       this.units.push(u);
@@ -260,7 +268,9 @@ export class Battle {
   }
 
   private statusVal(u: Unit, id: StatusId): number {
-    return u.statuses.find((s) => s.id === id)?.value ?? 0;
+    let v = 0;
+    for (const s of u.statuses) if (s.id === id) v += s.value;
+    return v;
   }
 
   // ───────── turn logic ─────────
@@ -369,8 +379,14 @@ export class Battle {
     return arr.length ? arr[Math.floor(this.rand() * arr.length)] : undefined;
   }
 
+  /** Enemies that single-target picks may choose: shrouded units are skipped unless every enemy is shrouded. */
+  private visible(foes: Unit[]): Unit[] {
+    const seen = foes.filter((f) => !this.has(f, 'shroud'));
+    return seen.length ? seen : foes;
+  }
+
   private pickAuto(u: Unit): Unit | undefined {
-    const foes = this.enemies(u);
+    const foes = this.visible(this.enemies(u));
     if (!foes.length) return undefined;
     const taunters = foes.filter((f) => this.has(f, 'taunt'));
     if (taunters.length) return this.pick(taunters);
@@ -404,14 +420,15 @@ export class Battle {
       case 'enemyFront': return rowOr(foes, 'front');
       case 'enemyBack': return rowOr(foes, 'back');
       case 'enemyAll': return foes;
-      case 'enemyLowest': return minBy(foes, (x) => this.pct(x));
-      case 'enemyHighestAtk': return minBy(foes, (x) => -this.stat(x).atk);
+      case 'enemyLowest': return minBy(this.visible(foes), (x) => this.pct(x));
+      case 'enemyHighestAtk': return minBy(this.visible(foes), (x) => -this.stat(x).atk);
       case 'enemyBackLowest': {
-        const back = foes.filter((x) => x.row === 'back');
-        return minBy(back.length ? back : foes, (x) => this.pct(x));
+        const vis = this.visible(foes);
+        const back = vis.filter((x) => x.row === 'back');
+        return minBy(back.length ? back : vis, (x) => this.pct(x));
       }
       case 'enemyRandom': {
-        const t = this.pick(foes);
+        const t = this.pick(this.visible(foes));
         return t ? [t] : [];
       }
       case 'self': return me.alive ? [me] : [];
@@ -420,6 +437,7 @@ export class Battle {
       case 'allyBack': return rowOr(friends, 'back');
       case 'allyLowest': return minBy(friends, (x) => this.pct(x) * 10 + x.hp / 1e6);
       case 'allyFaction': return friends.filter((x) => x.def.faction === me.def.faction);
+      case 'allyBond': return friends.filter((x) => x !== me && me.bondMates.includes(x.def.id));
       case 'same': return ctx.last.filter((x) => x.alive);
     }
   }
@@ -441,7 +459,7 @@ export class Battle {
         const hitSet = new Set<Unit>();
         if (e.target === 'enemyRandom') {
           for (let i = 0; i < hits; i++) {
-            const t = this.pick(this.enemies(me));
+            const t = this.pick(this.visible(this.enemies(me)));
             if (!t) break;
             hitSet.add(t);
             this.dealDamage(me, t, e.mult, e);
@@ -495,7 +513,7 @@ export class Battle {
       case 'dispel': {
         const targets = this.resolve(ctx, e.target);
         for (const t of targets) {
-          t.statuses = t.statuses.filter((s) => !BUFFS.includes(s.id) || s.t > 900);
+          t.statuses = t.statuses.filter((s) => !BUFFS.includes(s.id) || s.t > PERMANENT);
           if (t.shield > 0) {
             t.shield = 0;
             this.events.push({ t: 'shieldBreak', target: t.uid });
@@ -538,56 +556,104 @@ export class Battle {
     }
   }
 
-  private reform(ctx: Ctx, mode: 'rescue' | 'fortify' | 'disrupt') {
+  private reform(ctx: Ctx, mode: ReformMode) {
     const me = ctx.caster;
-    if (mode === 'rescue') {
-      const friends = this.allies(me);
-      const front = friends.filter((x) => x.row === 'front').sort((a, b) => this.pct(a) - this.pct(b));
-      const back = friends
-        .filter((x) => x.row === 'back')
-        .sort((a, b) => this.pct(b) + (b.def.role === 'Defender' ? 0.5 : 0) - (this.pct(a) + (a.def.role === 'Defender' ? 0.5 : 0)));
-      const injured = front[0];
-      const healthy = back[0];
-      if (injured && healthy && this.pct(injured) < this.pct(healthy)) {
-        this.setRow(injured, 'back');
-        this.setRow(healthy, 'front');
-        ctx.last = [injured];
-      } else if (injured && !healthy && front.length > 1) {
-        this.setRow(injured, 'back');
-        ctx.last = [injured];
-      } else {
-        ctx.last = this.resolve(ctx, 'allyLowest');
+    switch (mode) {
+      case 'rescue': {
+        const friends = this.allies(me);
+        const front = friends.filter((x) => x.row === 'front').sort((a, b) => this.pct(a) - this.pct(b));
+        const back = friends
+          .filter((x) => x.row === 'back')
+          .sort((a, b) => this.pct(b) + (b.def.role === 'Defender' ? 0.5 : 0) - (this.pct(a) + (a.def.role === 'Defender' ? 0.5 : 0)));
+        const injured = front[0];
+        const healthy = back[0];
+        if (injured && healthy && this.pct(injured) < this.pct(healthy)) {
+          this.setRow(injured, 'back');
+          this.setRow(healthy, 'front');
+          ctx.last = [injured];
+        } else if (injured && !healthy && front.length > 1) {
+          this.setRow(injured, 'back');
+          ctx.last = [injured];
+        } else {
+          ctx.last = this.resolve(ctx, 'allyLowest');
+        }
+        return;
       }
-      return;
+      case 'fortify':
+      case 'rally': {
+        // Rebuild the caster's side: the sturdiest go front, the injured and Supports go back.
+        // Rally also lets each ally's own formation trait vote for the row it is best in.
+        const friends = this.allies(me);
+        const nFront = Math.max(1, Math.min(friends.length, this.frontSlots[me.side]));
+        const traitWeight = mode === 'rally' ? 0.8 : 0;
+        const score = new Map(friends.map((u) => [u, this.frontScore(u) + traitWeight * this.traitPreference(u)]));
+        const sorted = [...friends].sort((a, b) => score.get(b)! - score.get(a)! || a.slot - b.slot);
+        sorted.forEach((u, i) => this.setRow(u, i < nFront ? 'front' : 'back'));
+        ctx.last = mode === 'rally' ? sorted : sorted.slice(0, nFront);
+        return;
+      }
+      case 'shadowSwap': {
+        // The caster trades rows with the most endangered front-liner: from the back row he steps
+        // forward and they retreat into the back row. If he already stands in front, nobody moves
+        // (the front line keeps its size). With no other front-liner, the most injured ally is covered.
+        // Either way the caster ends in the front row and later 'same' effects target the ward.
+        const others = this.allies(me).filter((x) => x !== me);
+        const front = others.filter((x) => x.row === 'front');
+        const pool = front.length ? front : others;
+        const ward = pool.reduce<Unit | undefined>((a, b) => (!a || this.pct(b) < this.pct(a) || (this.pct(b) === this.pct(a) && b.slot < a.slot) ? b : a), undefined);
+        const fromBack = me.row === 'back';
+        this.setRow(me, 'front');
+        if (fromBack && ward && ward.row === 'front') this.setRow(ward, 'back');
+        ctx.last = ward ? [ward] : [];
+        return;
+      }
+      case 'invert': {
+        // Every enemy swaps rows. Later 'same' effects hit the enemies dragged into the front row.
+        const foes = this.enemies(me);
+        const toBack = foes.filter((x) => x.row === 'front');
+        const toFront = foes.filter((x) => x.row === 'back');
+        for (const u of toBack) this.setRow(u, 'back');
+        for (const u of toFront) this.setRow(u, 'front');
+        ctx.last = toFront.length ? toFront : toBack;
+        return;
+      }
+      case 'disrupt': {
+        const foes = this.enemies(me);
+        const sturdy = foes.filter((x) => x.row === 'front').sort((a, b) => this.stat(b).def - this.stat(a).def)[0];
+        const weak = foes.filter((x) => x.row === 'back').sort((a, b) => this.pct(a) - this.pct(b))[0];
+        const frontCount = foes.filter((x) => x.row === 'front').length;
+        if (sturdy && weak) {
+          this.setRow(sturdy, 'back');
+          this.setRow(weak, 'front');
+        } else if (weak) {
+          this.setRow(weak, 'front');
+        } else if (sturdy && frontCount > 1) {
+          this.setRow(sturdy, 'back');
+        }
+        ctx.last = weak ? [weak] : sturdy ? [sturdy] : [];
+        return;
+      }
     }
-    if (mode === 'fortify') {
-      const friends = this.allies(me);
-      const nFront = Math.max(1, Math.min(friends.length, this.frontSlots[me.side]));
-      const score = (u: Unit) =>
-        (u.def.role === 'Defender' ? 1 : 0) +
-        (u.def.role === 'Attacker' && u.def.range === 'melee' ? 0.6 : 0) -
-        (u.def.role === 'Support' ? 1.2 : 0) -
-        (u.def.range === 'ranged' ? 0.4 : 0) +
-        this.pct(u) * 1.5;
-      const sorted = [...friends].sort((a, b) => score(b) - score(a));
-      sorted.forEach((u, i) => this.setRow(u, i < nFront ? 'front' : 'back'));
-      ctx.last = sorted.slice(0, nFront);
-      return;
-    }
-    // disrupt the enemy formation
-    const foes = this.enemies(me);
-    const sturdy = foes.filter((x) => x.row === 'front').sort((a, b) => this.stat(b).def - this.stat(a).def)[0];
-    const weak = foes.filter((x) => x.row === 'back').sort((a, b) => this.pct(a) - this.pct(b))[0];
-    const frontCount = foes.filter((x) => x.row === 'front').length;
-    if (sturdy && weak) {
-      this.setRow(sturdy, 'back');
-      this.setRow(weak, 'front');
-    } else if (weak) {
-      this.setRow(weak, 'front');
-    } else if (sturdy && frontCount > 1) {
-      this.setRow(sturdy, 'back');
-    }
-    ctx.last = weak ? [weak] : sturdy ? [sturdy] : [];
+  }
+
+  /** How much a unit belongs in the front row (role, range and current HP). */
+  private frontScore(u: Unit): number {
+    return (
+      (u.def.role === 'Defender' ? 1 : 0) +
+      (u.def.role === 'Attacker' && u.def.range === 'melee' ? 0.6 : 0) -
+      (u.def.role === 'Support' ? 1.2 : 0) -
+      (u.def.range === 'ranged' ? 0.4 : 0) +
+      this.pct(u) * 1.5
+    );
+  }
+
+  /** -1 … 1: whether the unit's row bonuses (formation + own trait) make it stronger in front (+) or in back (−). */
+  traitPreference(u: Unit): number {
+    const at = (row: Row) => statPower(applyMods(u.raw, addMods(addMods({}, u.permMods), u.rowMods[row])));
+    const f = at('front');
+    const b = at('back');
+    const rel = (f - b) / (0.05 * Math.max(1, (f + b) / 2));
+    return Math.max(-1, Math.min(1, rel));
   }
 
   private setRow(u: Unit, row: Row) {
@@ -661,6 +727,7 @@ export class Battle {
     tgt.shield = 0;
     tgt.statuses = [];
     this.events.push({ t: 'death', target: tgt.uid });
+    this.fire(tgt, 'death', [tgt]);
     if (src && src.alive && src.side !== tgt.side) this.fire(src, 'kill', [tgt]);
     for (const a of this.units) if (a.side === tgt.side && a.alive) this.fire(a, 'allyDeath', [tgt]);
     for (const side of [0, 1] as const) {
@@ -700,7 +767,9 @@ export class Battle {
     let v = value;
     if (DOTS.includes(id)) v = value * this.stat(src).atk;
     if (id === 'regen') v = value * this.stat(src).atk * (1 + this.stat(src).heal);
-    const existing = t.statuses.find((s) => s.id === id);
+    // Whole-battle auras and timed buffs of the same kind are kept apart (they stack);
+    // copies of the same kind refresh to the longer duration and the stronger value.
+    const existing = t.statuses.find((s) => s.id === id && s.t > PERMANENT === dur > PERMANENT);
     if (existing) {
       existing.t = Math.max(existing.t, dur);
       existing.max = Math.max(existing.max, dur);

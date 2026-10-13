@@ -1,11 +1,14 @@
-import type { ComponentChildren } from 'preact';
+import { createContext, type ComponentChildren } from 'preact';
 import { createPortal, memo } from 'preact/compat';
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
 import { getHero } from '../../data/heroes';
 import type { Currencies, Reward } from '../../game/state';
 import { RARITY_INFO, ROLE_INFO, fmt } from '../../game/stats';
 import type { OwnedHero, Rarity } from '../../game/types';
+import { reducedMotion } from '../prefs';
+
+export { AnimatedNumber, Burst, Skeleton, SkeletonList, flyRewards, useCountUp, useHoldRepeat } from './fx';
 
 // ───────── currency icons ─────────
 
@@ -145,20 +148,46 @@ interface HeroCardProps {
   onClick?: () => void;
 }
 
+// Press tilt: the card leans toward the finger and catches a highlight.
+function tiltDown(e: PointerEvent) {
+  const el = e.currentTarget as HTMLElement;
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const px = (e.clientX - r.left) / r.width - 0.5;
+  const py = (e.clientY - r.top) / r.height - 0.5;
+  el.style.setProperty('--tx', `${(px * 18).toFixed(1)}deg`);
+  el.style.setProperty('--ty', `${(-py * 18).toFixed(1)}deg`);
+  el.style.setProperty('--gx', `${((px + 0.5) * 100).toFixed(0)}%`);
+  el.style.setProperty('--gy', `${((py + 0.5) * 100).toFixed(0)}%`);
+  el.classList.add('pressing');
+}
+
+function tiltUp(e: PointerEvent) {
+  (e.currentTarget as HTMLElement).classList.remove('pressing');
+}
+
 export const HeroCard = memo(function HeroCard({ id, owned, locked, selected, inSquad, upgradable, onClick }: HeroCardProps) {
   const h = getHero(id);
   const rc = RARITY_INFO[h.rarity].color;
+  const name = locked ? 'Unknown hero' : h.name;
   return (
     <button
       class={`hero-card ${h.rarity} ${locked ? 'locked' : ''} ${selected ? 'selected' : ''}`}
       style={{ '--hc': h.color, '--rc': rc } as any}
       onClick={onClick}
+      onPointerDown={tiltDown}
+      onPointerUp={tiltUp}
+      onPointerLeave={tiltUp}
+      onPointerCancel={tiltUp}
+      data-hero={id}
+      aria-label={`${name}${owned ? `, level ${owned.level}, ${owned.stars} stars` : ''}${inSquad ? ', in squad' : ''}${upgradable ? ', can upgrade' : ''}`}
     >
       <div class="card-bg" />
       <div class="card-art">
         <CharacterArt id={id} mode="full" />
       </div>
       <div class="card-frame" />
+      <div class="card-shine" />
       {owned && <div class="card-lv">Lv{owned.level}</div>}
       <div class="card-role">{ROLE_INFO[h.role].icon}</div>
       <RarityBadge r={h.rarity} short class="card-rar" />
@@ -180,38 +209,145 @@ export function Portal({ children }: { children: ComponentChildren }) {
   return host ? createPortal(children as any, host) : <>{children}</>;
 }
 
-export function Modal({ children, onClose, center }: { children: ComponentChildren; onClose: () => void; center?: boolean }) {
+const ModalCloseContext = createContext<() => void>(() => {});
+
+/** Inside a <Modal>: close it with its exit animation (e.g. after a confirm button). */
+export function useModalClose(): () => void {
+  return useContext(ModalCloseContext);
+}
+
+// Escape closes the most recently opened modal only.
+const modalStack: (() => void)[] = [];
+let escBound = false;
+function bindEscape() {
+  if (escBound || typeof window === 'undefined') return;
+  escBound = true;
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalStack.length) {
+      e.preventDefault();
+      modalStack[modalStack.length - 1]();
+    }
+  });
+}
+
+const CLOSE_MS = 190;
+
+export function Modal({ children, onClose, center, label }: { children: ComponentChildren; onClose: () => void; center?: boolean; label?: string }) {
+  const [closing, setClosing] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const closingRef = useRef(false);
+  const alive = useRef(true);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y0: number; dy: number; t0: number; id: number } | null>(null);
+
+  const requestClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (reducedMotion()) {
+      onCloseRef.current();
+      return;
+    }
+    setClosing(true);
+    setTimeout(() => {
+      if (alive.current) onCloseRef.current();
+    }, CLOSE_MS);
+  }, []);
+
+  useEffect(() => {
+    bindEscape();
+    modalStack.push(requestClose);
+    const prev = document.activeElement as HTMLElement | null;
+    sheetRef.current?.focus({ preventScroll: true });
+    return () => {
+      alive.current = false;
+      const i = modalStack.lastIndexOf(requestClose);
+      if (i >= 0) modalStack.splice(i, 1);
+      if (prev && prev !== document.body && document.contains(prev)) {
+        try {
+          prev.focus({ preventScroll: true });
+        } catch {
+          /* element can't take focus any more */
+        }
+      }
+    };
+  }, []);
+
+  // Drag the sheet's grip down to dismiss it.
+  const gripDown = (e: PointerEvent) => {
+    if (center || closingRef.current) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    drag.current = { y0: e.clientY, dy: 0, t0: e.timeStamp, id: e.pointerId };
+    sheetRef.current?.classList.add('dragging');
+  };
+  const gripMove = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || !sheetRef.current) return;
+    d.dy = Math.max(0, e.clientY - d.y0);
+    sheetRef.current.style.transform = `translateY(${d.dy}px)`;
+  };
+  const gripUp = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    const el = sheetRef.current;
+    if (!el) return;
+    el.classList.remove('dragging');
+    const v = d.dy / Math.max(1, e.timeStamp - d.t0);
+    if (d.dy > 110 || (d.dy > 30 && v > 0.6)) {
+      el.style.setProperty('--drag', `${d.dy}px`);
+      el.style.transform = '';
+      requestClose();
+    } else el.style.transform = '';
+  };
+
   return (
     <Portal>
-    <div class={`modal-wrap ${center ? 'center' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div class="modal">
-        <button class="icon-btn modal-close" onClick={onClose} aria-label="Close">
-          ✕
-        </button>
-        {children}
+      <div
+        class={`modal-wrap ${center ? 'center' : ''} ${closing ? 'closing' : ''}`}
+        onClick={(e) => e.target === e.currentTarget && requestClose()}
+      >
+        <div class="modal" ref={sheetRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
+          {!center && (
+            <div class="sheet-grip" onPointerDown={gripDown} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} aria-hidden="true">
+              <i />
+            </div>
+          )}
+          <button class="icon-btn modal-close" onClick={requestClose} aria-label="Close">
+            ✕
+          </button>
+          <ModalCloseContext.Provider value={requestClose}>{children}</ModalCloseContext.Provider>
+        </div>
       </div>
-    </div>
     </Portal>
   );
 }
 
 // ───────── toasts ─────────
 
-type ToastMsg = { id: number; text: string };
+export type ToastKind = 'info' | 'good' | 'bad' | 'reward';
+type ToastMsg = { id: number; text: string; kind: ToastKind; out?: boolean };
 let toastId = 0;
 const toastListeners = new Set<(t: ToastMsg) => void>();
+const TOAST_ICON: Record<ToastKind, string> = { info: '', good: '✔', bad: '!', reward: '✦' };
 
-export function toast(text: string) {
-  const t = { id: ++toastId, text };
+/** Pop a short message under the top bar. `kind` only changes the colour/icon. */
+export function toast(text: string, kind: ToastKind = 'info') {
+  const t = { id: ++toastId, text, kind };
   toastListeners.forEach((l) => l(t));
 }
 
 export function Toasts() {
   const [items, setItems] = useState<ToastMsg[]>([]);
+  const dismiss = useRef((id: number) => {
+    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, out: true } : x)));
+    setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), 260);
+  }).current;
   useEffect(() => {
     const l = (t: ToastMsg) => {
-      setItems((xs) => [...xs.slice(-3), t]);
-      setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== t.id)), 2700);
+      // Same text again replaces the old one instead of stacking duplicates.
+      setItems((xs) => [...xs.filter((x) => x.text !== t.text).slice(-2), t]);
+      setTimeout(() => dismiss(t.id), 2600);
     };
     toastListeners.add(l);
     return () => {
@@ -219,10 +355,11 @@ export function Toasts() {
     };
   }, []);
   return (
-    <div class="toasts">
+    <div class="toasts" role="status" aria-live="polite">
       {items.map((t) => (
-        <div class="toast" key={t.id}>
-          {t.text}
+        <div class={`toast ${t.kind} ${t.out ? 'out' : ''}`} key={t.id} onClick={() => dismiss(t.id)}>
+          {TOAST_ICON[t.kind] && <span class="toast-ico">{TOAST_ICON[t.kind]}</span>}
+          <span>{t.text}</span>
         </div>
       ))}
     </div>

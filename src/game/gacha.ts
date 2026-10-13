@@ -1,4 +1,4 @@
-import { SUMMONABLE } from '../data/heroes';
+import { SUMMONABLE, getHero } from '../data/heroes';
 import type { Rng } from './rng';
 import type { SaveState } from './state';
 import { RARITY_INFO, SHARDS_PER_DUPE } from './stats';
@@ -14,8 +14,14 @@ export interface Banner {
   id: string;
   name: string;
   tagline: string;
-  featured: string[]; // hero ids with rate-up
+  featured: string[]; // hero ids with rate-up (Mythics first, then Legendaries)
   colors: [string, string];
+  /** Short label for the banner tab. */
+  tab: string;
+  /** Chip text above the banner name. */
+  badge: string;
+  /** Limited-time event banner (its Mythics are not on the weekly rotation). */
+  limited?: boolean;
 }
 
 export interface PullResult {
@@ -26,14 +32,27 @@ export interface PullResult {
 
 const byRarity = (r: Rarity) => SUMMONABLE.filter((h) => h.rarity === r);
 
-/** Weekly rotating featured banner. */
+/** The limited Devil Union banner: its two Mythics each take 25% of Mythic pulls. */
+export const DEVIL_UNION = {
+  id: 'devil-union',
+  mythics: ['nacht', 'liebe'],
+  legendaries: ['secre', 'jack'],
+} as const;
+
+const firstName = (id: string) => getHero(id).name.split(' ')[0];
+
+/** Banners: weekly rotating featured, the limited Devil Union event and the standard pool. */
 export function getBanners(now = Date.now()): Banner[] {
   const week = Math.floor(now / (7 * 24 * 3600 * 1000));
-  const urs = byRarity('UR');
+  // The limited banner's Mythics stay off the weekly rotation so the two never feature the same hero.
+  const limitedIds: readonly string[] = DEVIL_UNION.mythics;
+  const urs = byRarity('UR').filter((h) => !limitedIds.includes(h.id));
   const ssrs = byRarity('SSR');
   const ur = urs[week % urs.length];
   const ssrA = ssrs[week % ssrs.length];
   const ssrB = ssrs[(week + 4) % ssrs.length];
+  const [m1, m2] = DEVIL_UNION.mythics;
+  const [l1, l2] = DEVIL_UNION.legendaries;
   return [
     {
       id: 'featured',
@@ -41,6 +60,18 @@ export function getBanners(now = Date.now()): Banner[] {
       tagline: `Rate-up! 50% of Mythic pulls are ${ur.name}. Featured Legendaries: ${ssrA.name.split(' ')[0]} & ${ssrB.name.split(' ')[0]}.`,
       featured: [ur.id, ssrA.id, ssrB.id],
       colors: [ur.color, '#1b1033'],
+      tab: '★ Featured',
+      badge: 'RATE UP · THIS WEEK',
+    },
+    {
+      id: DEVIL_UNION.id,
+      name: 'Devil Union',
+      tagline: `Limited! ${firstName(m1)} and ${firstName(m2)} are 25% of Mythic pulls each. Featured Legendaries: ${firstName(l1)} & ${firstName(l2)}.`,
+      featured: [m1, m2, l1, l2],
+      colors: ['#7d5cff', '#120a1f'],
+      tab: '😈 Limited',
+      badge: 'LIMITED · DEVIL UNION',
+      limited: true,
     },
     {
       id: 'standard',
@@ -48,6 +79,8 @@ export function getBanners(now = Date.now()): Banner[] {
       tagline: 'Every Magic Knight and villain can answer the call.',
       featured: [],
       colors: ['#3ddc84', '#102a1c'],
+      tab: 'Standard',
+      badge: 'ALWAYS OPEN',
     },
   ];
 }

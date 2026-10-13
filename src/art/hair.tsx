@@ -81,6 +81,18 @@ const S_FRINGE: Sil = {
   outer: [[30.6, 52, 1], [28, 44], [26.2, 34], [27, 24], [31.4, 14.6], [39.6, 8.6], [50, 6.4], [60, 7.6], [68, 12.6], [72.6, 21], [74, 32], [72.6, 43], [69.6, 52, 1], [67.8, 42]],
   inner: [[33.4, 42]],
 };
+const S_SWEPTLONG: Sil = {
+  outer: [[31.4, 62, 1], [28.8, 52], [27.8, 40], [27.2, 30], [26, 22], [23.4, 14.4, 1], [30.6, 13.4], [30.4, 5, 1], [38.6, 7.8], [43.4, 1.2, 1], [49, 6], [57, 1.4, 1], [60.6, 7], [69.4, 5, 1], [69.2, 12.4], [76.4, 14.4, 1], [74, 22], [72.8, 30], [72.2, 40], [71.2, 52], [68.6, 62, 1], [67.8, 52], [66.8, 40], [65.6, 30.4]],
+  inner: [[34.2, 30.6], [33.2, 40], [32.4, 52]],
+};
+const S_BOBSLEEK: Sil = {
+  outer: [[34.4, 58.6, 1], [28.4, 57.8, 1], [26.4, 50], [25.6, 40], [25.8, 30], [28.6, 19], [35.4, 11], [44, 7], [52, 6.6], [61, 8.2], [68, 13], [72.4, 21], [74.2, 31], [74.4, 41], [73.6, 50], [71.6, 57.8, 1], [65.6, 58.6, 1], [66.4, 48]],
+  inner: [[33.6, 48]],
+};
+const S_CURLY: Sil = {
+  outer: [[29, 62, 1], [24.6, 58], [23.6, 52, 1], [21.6, 46], [22.6, 39, 1], [21.4, 32], [23.6, 25, 1], [25, 18], [30.4, 13.4, 1], [34, 8.6], [41, 6.4, 1], [46, 4], [54, 4, 1], [59, 6], [66, 7.6, 1], [70, 12], [75, 16.6, 1], [76, 23], [78.4, 30, 1], [78, 37], [77.4, 44, 1], [78.4, 50], [76, 56, 1], [75.4, 60], [71, 62, 1], [68.6, 54], [67.6, 46]],
+  inner: [[33.6, 46], [31.4, 54]],
+};
 
 // ---------------------------------------------------------------- bangs (right -> left)
 
@@ -130,6 +142,10 @@ const BANGS: Record<string, Bang> = {
     pts: [[65.4, 27.6, 1], [62.2, 22.4], [58.6, 27.2, 1], [55, 21.6], [51, 27.6, 1], [47, 21.6], [43, 27, 1], [39.2, 22], [35.4, 27.4, 1]],
     lines: 'M62.2 22.4Q61.6 18 58.6 14.6M55 21.6Q55 17 52.6 13M47 21.6Q46.6 17.4 44 13.8',
   },
+  sweptStrands: {
+    pts: [[64, 27], [60, 22], [55, 21.4], [52.4, 28.6, 1], [51, 21.2], [45.4, 21.4], [39.6, 24.4], [35.6, 28.6]],
+    lines: 'M60 22Q57 15 51.6 11.6M45.4 21.4Q42 15 36.4 13.6M55 21.4Q53.6 15 48 9.6M68 30Q69 42 69.4 54M32 32Q31 42 30.6 52',
+  },
   wavy: {
     pts: [[64.6, 30.2, 1], [60.5, 25.6], [55.4, 27], [51.2, 33, 1], [49, 25.6], [44, 24.4], [39.4, 27], [35.4, 32.6, 1]],
     lines: 'M60.5 25.6Q60 19 55 15M49 25.6Q49.6 18 46 13.6M44 24.4Q40 21 36.4 21.6',
@@ -145,6 +161,8 @@ const B_TOUSLED: Pt[] = [[30, 62, 1], [26, 56], [22, 52, 1], [24.6, 44], [21.6, 
 const B_MEDIUM: Pt[] = [[24, 67, 1], [22.6, 58], [22, 46], [23, 30], [29, 16], [40, 8], [50, 6.6], [60, 8], [71, 16], [77, 30], [78, 46], [77.4, 58], [76, 67, 1], [68, 62], [60, 64], [50, 62], [40, 64], [32, 62]];
 const B_UPSWEPT: Pt[] = [[24, 80, 1], [22, 66], [21.6, 52], [23, 36], [27, 22], [36, 10], [50, 6], [64, 10], [73, 22], [77, 36], [78.4, 52], [78, 66], [76, 80, 1], [70, 73], [64, 78, 1], [58, 71], [50, 73], [42, 71], [36, 78, 1], [30, 73]];
 const B_BOB: Pt[] = [[30, 60, 1], [24.6, 54], [22.6, 44], [22.6, 30], [27, 17], [38, 8], [50, 6], [62, 8], [73, 17], [77.4, 30], [77.4, 44], [75.4, 54], [70, 60, 1], [60, 58], [50, 60], [40, 58]];
+const B_BOBSLEEK: Pt[] = [[30, 60.6, 1], [25, 55], [23.4, 44], [23.6, 30], [28, 17], [38, 8.4], [50, 6.4], [62, 8.4], [72, 17], [76.4, 30], [76.6, 44], [75, 55], [70, 60.6, 1], [50, 59]];
+const B_CURLY: Pt[] = [[22, 68, 1], [19.6, 60], [20.6, 52, 1], [18.6, 44], [20, 36, 1], [19, 28], [24, 18], [33, 10], [50, 6], [67, 10], [76, 18], [81, 28], [80, 36, 1], [81.4, 44], [79.4, 52, 1], [80.4, 60], [78, 68, 1], [70, 64], [64, 68, 1], [56, 64], [50, 67, 1], [44, 64], [36, 68, 1], [30, 64]];
 const B_WILD: Pt[] = [[28, 64, 1], [24, 56], [18, 54, 1], [22.6, 46], [17, 38, 1], [22.6, 30], [21, 18], [30, 9], [42, 5], [58, 5], [70, 9], [79, 18], [77.4, 30], [83, 38, 1], [77.4, 46], [82, 54, 1], [76, 56], [72, 64, 1], [64, 58], [56, 63, 1], [50, 58], [44, 63, 1], [36, 58]];
 
 function maneBack(): string {
@@ -185,6 +203,9 @@ const STYLES: Record<Exclude<HairStyle, 'none' | 'bald' | 'twintails' | 'ponytai
   pompadour: { sil: S_POMP, bangs: 'pomp', back: null, shine: 'M33 9.6Q38 4 46 2.4' },
   bob: { sil: S_BOB, bangs: 'blunt', back: B_BOB },
   slicked: { sil: S_SLICKED, bangs: 'slick', back: B_SHORT, shine: 'M35.4 17Q39 11.6 45.4 10' },
+  sweptLong: { sil: S_SWEPTLONG, bangs: 'sweptStrands', back: B_SHORT, shine: 'M34 19Q37.6 12.6 44.6 10' },
+  bobSleek: { sil: S_BOBSLEEK, bangs: 'blunt', back: B_BOBSLEEK },
+  curlyBun: { sil: S_CURLY, bangs: 'zig', back: B_CURLY, extraLines: 'M27.6 27Q23.6 30 25.6 34Q28.4 36 29.6 33.2M72.4 27Q76.4 30 74.4 34Q71.6 36 70.4 33.2M26.6 41Q22.6 44 24.6 48Q27.4 50 28.6 47.2M73.4 41Q77.4 44 75.4 48Q72.6 50 71.4 47.2M28 54.6Q25 57 27 60.4M72 54.6Q75 57 73 60.4M40 10Q44 8 46 11M56 9Q60 8.6 61 12' },
 };
 
 const TWIN: StyleDef = { sil: S_SHORT, bangs: 'blunt', back: B_SHORT };
@@ -283,6 +304,13 @@ export function hair(spec: Spec, uid: string): HairParts {
       <path key="pth" d="M70 3.6Q80 2.4 86 7" fill="none" stroke={tint(base, 0.42)} stroke-width={2} />,
     );
   }
+  if (st === 'curlyBun') {
+    backEls.push(
+      <circle key="bun" cx={50} cy={4.6} r={10.4} fill={base} />,
+      <path key="bunl" d="M43.4 3.6Q46.6 -1.6 52.4 0Q57 2 55.6 6.6Q53 9 50.4 6.6M44.6 9.6Q50 12.4 55.4 9.6" fill="none" stroke={shade(dark, 0.25)} stroke-width={1.1} />,
+      <path key="bunt" d="M50 12.6L42.6 9L43.4 15.6ZM50 12.6L57.4 9L56.6 15.6Z" fill="#ff8a7c" stroke-width={1.3} />,
+    );
+  }
   if (backD) backEls.push(<path key="b" d={backD} fill={dark} />);
   if (spec.hair.tips && backD) {
     const cid = `${uid}-tips`;
@@ -308,15 +336,16 @@ export function hair(spec: Spec, uid: string): HairParts {
   if (spec.hair.tips) {
     inside.push(<rect key="tp" x={0} y={59.5} width={100} height={20} fill={spec.hair.tips} />);
   }
+  if (spec.hair.fringe) {
+    const top: Pt[] = [[32.6, 22, 1], [36.6, 13.6, 1], [41.4, 19.4, 1], [46.4, 11.6, 1], [51.6, 18, 1], [56.8, 11, 1], [61.8, 17.6, 1], [67.4, 12.6, 1]];
+    inside.push(<path key="fr" d={spline([...b.pts, ...top])} fill={spec.hair.fringe} stroke={OUT} stroke-width={1} />);
+  }
   frontEls.push(<g key="in" clip-path={`url(#${cid})`} stroke="none">{inside}</g>);
   if (b.lines) frontEls.push(<path key="ln" d={b.lines} fill="none" stroke={shade(dark, 0.35)} stroke-width={1.1} />);
   if (def.extraLines) frontEls.push(<path key="xl" d={def.extraLines} fill="none" stroke={shade(dark, 0.35)} stroke-width={1.1} />);
   const shine = def.shine === undefined ? SHINE : def.shine;
   if (shine) {
-    frontEls.push(
-      <path key="sn" d={shine} fill="none" stroke={shineCol} stroke-width={2.2} />,
-      <path key="sn2" d={SHINE2} fill="none" stroke={shineCol} stroke-width={2} opacity={def.shine === undefined ? 1 : 0} />,
-    );
+    frontEls.push(<path key="sn" d={def.shine === undefined ? shine + SHINE2 : shine} fill="none" stroke={shineCol} stroke-width={2.1} />);
   }
   frontEls.push(<path key="o" d={frontD} fill="none" />);
   if (st === 'twintails') {

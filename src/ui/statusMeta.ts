@@ -18,6 +18,7 @@ export const STATUS_ICON: Record<StatusId, string> = {
   mark: '🎯',
   reflect: '🪞',
   fate: '🧵',
+  shroud: '🌑',
 };
 
 export const STATUS_TEXT: Partial<Record<StatusId, string>> = {
@@ -32,4 +33,5 @@ export const STATUS_TEXT: Partial<Record<StatusId, string>> = {
   defDown: 'DEF↓',
   spdDown: 'SPD↓',
   fate: 'FATE',
+  shroud: 'SHROUDED',
 };

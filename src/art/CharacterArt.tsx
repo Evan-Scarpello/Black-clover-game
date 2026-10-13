@@ -34,6 +34,7 @@ export const ART_IDS: string[] = [
   'william', 'dante', 'vanica', 'licht', 'finral', 'luck', 'vanessa', 'gauche', 'mimosa', 'langris',
   'henry', 'zenon', 'fana', 'vetto', 'megicula', 'magna', 'charmy', 'gordon', 'klaus', 'sol', 'leopold',
   'valtos', 'sally',
+  'nacht', 'lumiere', 'liebe', 'zagred', 'secre', 'jack', 'dorothy', 'rill', 'patri', 'damnatio',
   'bandit', 'bandit_mage', 'magic_beast', 'golem', 'diamond_mage', 'acolyte', 'spade_soldier', 'imp',
   'revchi', 'mars', 'lucifero',
 ];

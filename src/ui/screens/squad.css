@@ -1,0 +1,134 @@
+/* ───────── squad board: tap-to-swap, drag-and-drop, FLIP moves ───────── */
+
+.squad-board .slot {
+  width: 74px;
+  height: 100px;
+  margin: -50px 0 0 -37px;
+  transform: none;
+  transition: none;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.squad-board .sq-pad {
+  z-index: 1;
+}
+
+.squad-board .sq-pad .slot-art {
+  height: 70px;
+  margin: 8px 0 0;
+}
+
+.squad-board .sq-pad.filled .slot-art {
+  border: none;
+}
+
+/* the glowing ground ring under a selected or targeted slot */
+.squad-board .sq-pad::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 80px;
+  width: 70px;
+  height: 20px;
+  margin-left: -35px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  transform: scale(0.7);
+  pointer-events: none;
+}
+
+.squad-board .sq-pad.sel::after {
+  opacity: 1;
+  transform: scale(1);
+  border-color: var(--gold);
+  background: rgba(255, 197, 49, 0.25);
+  animation: sq-ring 1.2s ease-in-out infinite;
+}
+
+.squad-board .sq-pad.over::after {
+  opacity: 1;
+  transform: scale(1.15);
+  border-color: var(--green);
+  background: rgba(61, 220, 132, 0.3);
+}
+
+.squad-board .sq-pad.empty.over .slot-art {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+@keyframes sq-ring {
+  50% { transform: scale(1.12); }
+}
+
+.squad-board .sq-unit {
+  z-index: 2;
+  touch-action: none;
+  cursor: grab;
+}
+
+.squad-board .sq-unit .slot-art {
+  transition: scale 0.15s;
+}
+
+.squad-board .sq-unit:active .slot-art {
+  scale: 0.94;
+}
+
+.squad-board .sq-unit.sel .slot-art {
+  animation: sq-sel 1.1s ease-in-out infinite;
+}
+
+@keyframes sq-sel {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.squad-board .sq-unit.dragging {
+  z-index: 5;
+  cursor: grabbing;
+}
+
+.squad-board .sq-unit.dragging .slot-art {
+  scale: 1.12;
+  filter: drop-shadow(0 10px 6px rgba(0, 0, 0, 0.5));
+  animation: none;
+}
+
+.squad-board .sq-unit.over .slot-art {
+  opacity: 0.55;
+}
+
+.squad-board .sq-unit:focus-visible {
+  outline: none;
+}
+
+.squad-board .sq-unit:focus-visible .slot-name,
+.squad-board .sq-pad:focus-visible .slot-art {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.squad-board.is-dragging .lane-label {
+  animation: sq-lane 0.8s ease-in-out infinite;
+}
+
+@keyframes sq-lane {
+  50% { opacity: 0.5; }
+}
+
+.sq-desc {
+  margin-top: 4px;
+  animation: fadein 0.3s ease-out;
+}
+
+.sq-hint .small-text {
+  flex: 1;
+  min-width: 0;
+}

@@ -1,0 +1,872 @@
+/* ───────── hub: the Black Bulls hideout base map ─────────
+   Everything that moves animates transform/opacity only; the big SVG backdrop is static. */
+
+.screen.hub {
+  padding: 0;
+  position: relative;
+}
+
+.hub-map {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  overflow: clip;
+  isolation: isolate;
+  z-index: 0;
+  background: #2f4f20;
+}
+
+.hub-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* sky */
+.hub-title {
+  position: absolute;
+  left: 4%;
+  width: 62%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hub-title h1 {
+  font-size: 31px;
+  line-height: 0.92;
+  color: #fff;
+  text-shadow: 3px 3px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink);
+  transform: rotate(-3deg);
+  transform-origin: 0 50%;
+}
+
+.hub-title h1 em {
+  font-style: normal;
+  color: var(--green);
+  display: block;
+  font-size: 21px;
+  margin-left: 6px;
+}
+
+.hub-title .fan-tag {
+  margin: 8px 0 0 4px;
+}
+
+.hub-cloud {
+  position: absolute;
+  left: 0;
+  width: 28%;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 220, 240, 0.16);
+  pointer-events: none;
+  z-index: 0;
+  animation: hub-cloud 90s linear infinite;
+}
+
+.hub-cloud::before,
+.hub-cloud::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.hub-cloud::before {
+  width: 42%;
+  height: 160%;
+  left: 18%;
+  bottom: 30%;
+}
+
+.hub-cloud::after {
+  width: 30%;
+  height: 120%;
+  left: 52%;
+  bottom: 40%;
+}
+
+.hub-cloud.c1 {
+  top: 15%;
+  animation-delay: -30s;
+}
+
+.hub-cloud.c2 {
+  top: 24%;
+  width: 20%;
+  height: 16px;
+  animation-duration: 120s;
+  animation-delay: -95s;
+}
+
+@keyframes hub-cloud {
+  from { transform: translate3d(-110%, 0, 0); }
+  to { transform: translate3d(380%, 0, 0); }
+}
+
+.hub-glow {
+  position: absolute;
+  width: 11%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255, 211, 107, 0.8), rgba(255, 211, 107, 0) 65%);
+  pointer-events: none;
+  z-index: 1;
+  animation: hub-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes hub-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.hub-firefly {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #fff3a0;
+  box-shadow: 0 0 7px 2px rgba(255, 243, 160, 0.65);
+  pointer-events: none;
+  z-index: 1500;
+  animation: hub-firefly 8s ease-in-out infinite;
+}
+
+@keyframes hub-firefly {
+  0%, 100% { transform: translate(0, 0); opacity: 0; }
+  20% { opacity: 1; }
+  40% { transform: translate(18px, -14px); }
+  60% { transform: translate(-8px, -26px); opacity: 0.9; }
+  80% { transform: translate(-20px, -6px); opacity: 0.2; }
+}
+
+/* ───────── landmarks ───────── */
+
+.lm {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: block;
+  color: inherit;
+}
+
+.lm-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  transform-origin: 50% 100%;
+  animation: lm-breathe 5s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+  transition: scale 0.12s;
+}
+
+.lm-art .lm-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lm-art .lm-svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes lm-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.012, 0.988); }
+}
+
+.lm:active .lm-art {
+  scale: 0.93;
+}
+
+.lm-art.lm-pop {
+  animation: lm-pop 0.42s cubic-bezier(0.3, 1.7, 0.5, 1), lm-breathe 5s ease-in-out 0.42s infinite;
+}
+
+@keyframes lm-pop {
+  0% { transform: scale(0.88, 0.92); }
+  45% { transform: scale(1.07, 1.06); }
+  100% { transform: scale(1, 1); }
+}
+
+.lm-art.lm-shake {
+  animation: lm-shake 0.4s ease-in-out;
+}
+
+@keyframes lm-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px) rotate(-1.5deg); }
+  40% { transform: translateX(6px) rotate(1.5deg); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+.lm-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(calc(-50% + var(--nx, 0px)), -62%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 1px 10px 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #43356b, #231a3c);
+  border: 2.5px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  font-family: var(--comic);
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--ink);
+  z-index: 2;
+}
+
+.lm-label .lm-ico {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.lm-dot.badge-dot {
+  top: -6px;
+  right: -6px;
+  animation: lm-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes lm-dot {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+.lm-sub {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(calc(-50% + var(--nx, 0px)), 78%);
+  font-size: 10.5px;
+  font-weight: 900;
+  line-height: 1.5;
+  background: rgba(8, 5, 14, 0.78);
+  color: var(--gold);
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.lm-sub.lm-req {
+  color: #ffc2ca;
+}
+
+.lm.locked .lm-art .lm-svg {
+  filter: grayscale(0.8) brightness(0.55);
+}
+
+.lm.locked .lm-label {
+  background: linear-gradient(180deg, #3a3346, #201a29);
+  color: #cfc6dd;
+}
+
+.lm:focus-visible {
+  outline: none;
+}
+
+.lm:focus-visible .lm-label {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* animated decorations */
+.lm-deco {
+  position: absolute;
+  pointer-events: none;
+}
+
+.lm-flag {
+  width: 15%;
+  min-width: 14px;
+  aspect-ratio: 30 / 20;
+  margin-top: -9%;
+  transform-origin: 0 50%;
+  animation: lm-flag 1.7s ease-in-out infinite;
+}
+
+.lm-flag::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0;
+  height: 190%;
+  width: 2.5px;
+  background: var(--ink);
+}
+
+.lm-flag .lm-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes lm-flag {
+  0%, 100% { transform: scaleX(1) skewY(0deg); }
+  50% { transform: scaleX(0.8) skewY(-7deg); }
+}
+
+.lm-glow {
+  width: 30%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: radial-gradient(circle, var(--c) 0%, transparent 66%);
+  opacity: 0.45;
+  animation: lm-glow 2.6s ease-in-out infinite;
+}
+
+@keyframes lm-glow {
+  50% { opacity: 0.95; }
+}
+
+.lm-spark {
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  background: #fff3a0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: lm-spark 2.8s ease-in-out infinite;
+}
+
+@keyframes lm-spark {
+  0%, 60%, 100% { transform: scale(0.2) rotate(0deg); opacity: 0; }
+  75% { transform: scale(1.1) rotate(45deg); opacity: 1; }
+}
+
+/* Grimoire Tower: a floating grimoire inside a turning magic circle */
+.lm-beacon {
+  position: absolute;
+  left: 50%;
+  top: -11%;
+  width: 52%;
+  aspect-ratio: 60 / 50;
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.lm-beacon .lm-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: lm-float 3s ease-in-out infinite;
+}
+
+.lm-ring {
+  position: absolute;
+  left: -22%;
+  top: -30%;
+  width: 144%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2.5px dashed rgba(196, 140, 255, 0.85);
+  box-shadow: 0 0 14px rgba(180, 107, 255, 0.55), inset 0 0 14px rgba(180, 107, 255, 0.4);
+  animation: lm-spin 9s linear infinite;
+}
+
+@keyframes lm-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-9%) rotate(3deg); }
+}
+
+@keyframes lm-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* AFK chest at the hideout door */
+.lm-chest {
+  position: absolute;
+  left: 78%;
+  bottom: -4%;
+  width: 26%;
+  aspect-ratio: 86 / 78;
+  pointer-events: none;
+}
+
+.lm-chest .chest-art,
+.dock-chest-art .chest-art,
+.afk-modal-chest .chest-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lm-chest.ready .chest-art,
+.dock-chest.ready .dock-chest-art,
+.afk-modal-chest.ready .chest-art {
+  animation: wiggle 1.2s ease-in-out infinite;
+}
+
+.lm-sign {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  translate: -50% 0;
+  font-size: 20px;
+  background: #fff3d6;
+  border: 2.5px solid var(--ink);
+  border-radius: 8px;
+  padding: 0 4px;
+}
+
+/* ───────── squad idling outside ───────── */
+
+.hub-squad {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  z-index: 548;
+}
+
+.hub-hero {
+  position: absolute;
+  bottom: 0;
+  translate: -50% 0;
+  aspect-ratio: 78 / 94;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.hub-hero-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  animation: bob 2.4s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+}
+
+.hub-hero-art > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hub-hero.hop .hub-hero-art {
+  animation: hub-hop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1), bob 2.4s ease-in-out 0.5s infinite;
+}
+
+@keyframes hub-hop {
+  0% { transform: scale(1.08, 0.9); }
+  40% { transform: translateY(-16px) scale(0.96, 1.06); }
+  100% { transform: none; }
+}
+
+.hub-hero:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.hub-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 96%;
+  translate: -50% 0;
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--comic);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  padding: 2px 9px;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  white-space: nowrap;
+  z-index: 5;
+  transform-origin: 50% 100%;
+  animation: hub-bubble 0.28s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.hub-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 8px;
+  margin-left: -5px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-top: none;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  margin-top: -1px;
+}
+
+@keyframes hub-bubble {
+  from { transform: scale(0.4); opacity: 0; }
+}
+
+.hub-squad-tag {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  min-height: 30px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #43356b, #231a3c);
+  border: 2.5px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  font-family: var(--comic);
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: #fff;
+  cursor: pointer;
+  transition: scale 0.1s;
+}
+
+.hub-squad-tag:active {
+  scale: 0.94;
+}
+
+.hub-squad-tag .power {
+  font-size: 14px;
+}
+
+/* ───────── event rail ───────── */
+
+.hub-rail-anchor {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 4;
+}
+
+.hub-rail {
+  position: absolute;
+  right: 8px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rail-btn {
+  position: relative;
+  width: 54px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  animation: rail-in 0.42s cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms + 0.1s);
+}
+
+@keyframes rail-in {
+  from { transform: translateX(70px); opacity: 0; }
+}
+
+.rail-ico {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: radial-gradient(circle at 35% 28%, #6a55a6, #2a1f47 70%);
+  border: 3px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink), inset 0 0 0 2px rgba(255, 197, 49, 0.55);
+  transition: scale 0.1s;
+}
+
+.rail-btn:active .rail-ico {
+  scale: 0.88;
+}
+
+.rail-btn:focus-visible {
+  outline: none;
+}
+
+.rail-btn:focus-visible .rail-ico {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.rail-lbl {
+  margin-top: -7px;
+  font-family: var(--comic);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  color: #fff;
+  background: #0f0a1a;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
+.rail-dot.badge-dot {
+  top: -1px;
+  right: 2px;
+}
+
+.rail-count {
+  position: absolute;
+  top: -4px;
+  right: -1px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--red);
+  border: 2px solid var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+  text-align: center;
+  animation: lm-dot 1.6s ease-in-out infinite;
+}
+
+.rail-btn.locked .rail-ico {
+  background: radial-gradient(circle at 35% 28%, #4a4458, #221d2b 70%);
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+/* ───────── dock: AFK chest + next battle ───────── */
+
+.hub-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  background: linear-gradient(180deg, rgba(20, 15, 34, 0), rgba(20, 15, 34, 0.72) 38%, rgba(20, 15, 34, 0.92));
+}
+
+.dock-chest {
+  position: relative;
+  flex: none;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: radial-gradient(circle at 50% 35%, #4d3d7e, #1d1631 75%);
+  box-shadow: 0 4px 0 var(--ink);
+  padding: 0;
+  cursor: pointer;
+  transition: scale 0.1s;
+}
+
+.dock-chest:active {
+  scale: 0.92;
+}
+
+.dock-ring {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+}
+
+.dock-ring circle:last-child {
+  transition: stroke-dasharray 0.6s ease-out;
+}
+
+.dock-chest-art {
+  position: absolute;
+  left: 16%;
+  top: 14%;
+  width: 68%;
+  aspect-ratio: 86 / 78;
+}
+
+.dock-chest-time {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  translate: -50% 0;
+  background: #0f0a1a;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 900;
+  line-height: 1.4;
+  padding: 0 6px;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.dock-chest.capped .dock-chest-time {
+  color: #fff;
+  background: var(--red);
+}
+
+.dock-chest .badge-dot {
+  top: 1px;
+  right: 3px;
+}
+
+.dock-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--halftone), var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 4px 0 var(--ink);
+  padding: 6px 6px 6px 8px;
+}
+
+.dock-stage-info {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dock-stage-num {
+  flex: none;
+  font-family: var(--comic);
+  font-size: 27px;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--ink);
+  line-height: 1;
+}
+
+.dock-stage-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dock-stage-text b {
+  font-family: var(--comic);
+  font-weight: 400;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-go {
+  position: relative;
+  flex: none;
+  padding: 7px 12px;
+  font-size: 19px;
+}
+
+.dock-go::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 17px;
+  border: 3px solid rgba(255, 75, 92, 0.85);
+  pointer-events: none;
+  animation: dock-ring 2.2s ease-out infinite;
+}
+
+@keyframes dock-ring {
+  0% { transform: scale(0.94); opacity: 0.9; }
+  70%, 100% { transform: scale(1.14, 1.3); opacity: 0; }
+}
+
+/* ───────── AFK modal ───────── */
+
+.afk-modal {
+  text-align: center;
+}
+
+.afk-modal-chest {
+  position: relative;
+  width: 128px;
+  aspect-ratio: 86 / 78;
+  margin: -4px auto 2px;
+}
+
+.afk-modal-chest.opened .chest-art {
+  animation: afk-open 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+
+@keyframes afk-open {
+  0% { transform: scale(0.9); }
+  40% { transform: scale(1.15) translateY(-6px); }
+  100% { transform: none; }
+}
+
+.afk-modal-title {
+  font-size: 28px;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.afk-modal-sub {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.afk-modal .spread {
+  text-align: left;
+}
+
+.afk-modal-bar {
+  margin: 4px 0 10px;
+}
+
+.afk-modal-yields {
+  justify-content: center;
+  font-size: 17px;
+  gap: 14px;
+}
+
+.afk-modal-btns {
+  margin-top: 8px;
+}
+
+.afk-modal-btns .btn {
+  min-height: 46px;
+}
+
+.afk-modal-rates {
+  margin-top: 10px;
+}
+
+.afk-full {
+  color: var(--red);
+}

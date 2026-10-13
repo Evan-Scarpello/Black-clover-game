@@ -1,6 +1,6 @@
 // Props: grimoire, weapons, head accessories, magic effects and familiars.
 import type { JSX } from 'preact';
-import { OUT, Pt, spline, shade, tint, leavesPath, sparkle, spikeRing } from './core';
+import { OUT, Pt, spline, shade, tint, leavesPath, sparkle, spikeRing, ell } from './core';
 import type { Spec, Fx } from './types';
 import { armPoses } from './body';
 
@@ -148,6 +148,28 @@ export function weapon(spec: Spec): El | null {
           <path d="M0 -6L0 -38M-3.2 -28L0 -24L3.2 -28" stroke="#5ab8d8" stroke-width={0.8} fill="none" />
         </g>
       );
+    case 'paintbrush':
+      return (
+        <g transform={t(22)}>
+          <path d="M-1.7 8L-1.4 -30L1.4 -30L1.7 8Z" fill="#c8884a" />
+          <path d="M-1.5 -4L1.5 -4M-1.5 -14L1.5 -14" fill="none" stroke="#8a5a2a" stroke-width={1.2} />
+          <path d="M-2.8 -29.4L2.8 -29.4L2.5 -36L-2.5 -36Z" fill="#c9d0e0" />
+          <path d="M-2.5 -36Q-5.4 -42 -3.8 -48Q-1.8 -54 0 -56.4Q1.8 -54 3.8 -48Q5.4 -42 2.5 -36Z" fill="#f6ead0" />
+          <path d="M-4.2 -45.6Q-2.4 -52.6 0 -56.4Q2.4 -52.6 4.2 -45.6Q0 -43.4 -4.2 -45.6Z" fill="#ff4a7a" stroke="none" />
+          <path d="M-4.4 -42.4Q0 -40.6 4.4 -42.4L4.2 -45.6Q0 -43.4 -4.2 -45.6Z" fill="#ffd23a" stroke="none" />
+          <path d="M-2.5 -36Q-5.4 -42 -3.8 -48Q-1.8 -54 0 -56.4Q1.8 -54 3.8 -48Q5.4 -42 2.5 -36Z" fill="none" />
+          <circle cx={5.6} cy={-40} r={1.5} fill="#3a8aff" stroke-width={0.9} />
+        </g>
+      );
+    case 'gavel':
+      return (
+        <g transform={t(-24)}>
+          <path d="M-1.3 5L-1.3 -12L1.3 -12L1.3 5Z" fill="#6a4026" />
+          <path d="M-7 -18.8L7 -18.8Q8.6 -18.8 8.6 -16.6L8.6 -13.6Q8.6 -11.4 7 -11.4L-7 -11.4Q-8.6 -11.4 -8.6 -13.6L-8.6 -16.6Q-8.6 -18.8 -7 -18.8Z" fill="#7a4a2a" />
+          <path d="M-5 -18.4L-5 -11.8M5 -18.4L5 -11.8" fill="none" stroke="#e0b03a" stroke-width={1.6} />
+          <path d="M-6.6 -17L4 -17" fill="none" stroke="#a8724a" stroke-width={1} />
+        </g>
+      );
     case 'dagger':
       return (
         <g transform={t(30)}>
@@ -196,6 +218,37 @@ export function headBack(spec: Spec): El | null {
 export function headOver(spec: Spec): El | null {
   const h = spec.head || [];
   const out: El[] = [];
+  if (h.includes('circlet')) {
+    out.push(
+      <g key="cl">
+        <path d="M27.6 25.6Q50 15 72.4 25.6L72.2 28.4Q50 18.2 27.8 28.4Z" fill="#f2c94a" stroke-width={1.4} />
+        <path d="M45.4 20.2L47.2 15.4L48.8 19.4L50 13.4L51.2 19.4L52.8 15.4L54.6 20.2Z" fill="#f2c94a" stroke-width={1.3} />
+        <path d="M50 18.2L51.8 20.8L50 23.4L48.2 20.8Z" fill="#4ad0e8" stroke-width={0.9} />
+        <path d="M31 24.6Q40 20.6 46 19.6" fill="none" stroke="#fff4c4" stroke-width={0.9} />
+      </g>,
+    );
+  }
+  if (h.includes('devilHorns')) {
+    out.push(
+      <g key="dh">
+        <path d="M37.4 12.4Q33.4 6.4 34.4 -0.6Q37.6 5 42.6 8.6ZM62.6 12.4Q66.6 6.4 65.6 -0.6Q62.4 5 57.4 8.6Z" fill="#4a4252" />
+        <path d="M36.6 8.6Q35.4 5 35.4 2M63.4 8.6Q64.6 5 64.6 2" fill="none" stroke="#8e86a0" stroke-width={0.9} />
+      </g>,
+    );
+  }
+  if (h.includes('ramHorns')) {
+    const horn = 'M36 15.4C31 6 21 3 15.6 8.6C11.6 13 13.6 20 19 20.4C16.6 18 16.6 13.6 20 11.6C24 9.6 29 12 32.4 18.4Z';
+    out.push(
+      <g key="rh">
+        <path d={horn} fill="#2a2030" />
+        <path d={horn} fill="#2a2030" transform="translate(100 0) scale(-1 1)" />
+        <path d="M30 10.4L28.6 13.2M25 8L24.4 11.2M20 8.2L20.6 11.4M70 10.4L71.4 13.2M75 8L75.6 11.2M80 8.2L79.4 11.4" fill="none" stroke="#6a5a7a" stroke-width={1} />
+      </g>,
+    );
+  }
+  if (h.includes('hornNubs')) {
+    out.push(<path key="hnb" d="M38.4 10.8Q39.4 4.8 42 3.6Q41.8 7.2 43.4 9.6ZM61.6 10.8Q60.6 4.8 58 3.6Q58.2 7.2 56.6 9.6Z" fill="#efe4d4" stroke-width={1.4} />);
+  }
   if (h.includes('crown')) {
     out.push(
       <g key="cr" transform="translate(59 9) rotate(16)">
@@ -325,6 +378,44 @@ export function fxBack(spec: Spec): El | null {
   if (!fx.length) return null;
   const out: El[] = [];
   const has = (f: Fx) => fx.includes(f);
+  if (has('urAura')) {
+    // premium (Mythic) glow: stacked translucent ellipses + ground ring + sparkles
+    const a = spec.aura;
+    out.push(
+      <g key="ur" stroke="none" fill={a}>
+        <ellipse cx={50} cy={64} rx={49} ry={58} opacity={0.1} />
+        <ellipse cx={50} cy={67} rx={39} ry={47} opacity={0.12} />
+        <ellipse cx={50} cy={71} rx={29} ry={35} opacity={0.14} />
+        <ellipse cx={50} cy={113.6} rx={31} ry={4.8} fill="none" stroke={a} stroke-width={1.5} opacity={0.85} />
+        <path d={sparkle(9, 22, 3) + sparkle(92, 16, 2.4) + sparkle(94, 92, 2) + sparkle(6, 100, 2.4)} fill={tint(a, 0.55)} />
+      </g>,
+    );
+  }
+  if (has('radiance')) {
+    let d = '';
+    for (let i = 0; i < 16; i++) {
+      const a = (i * 22.5 * Math.PI) / 180, w = 0.07;
+      const p = (r: number, da: number) => `${(50 + Math.cos(a + da) * r).toFixed(1)} ${(42 + Math.sin(a + da) * r).toFixed(1)}`;
+      d += `M${p(14, -w)}L${p(i % 2 ? 46 : 64, 0)}L${p(14, w)}Z`;
+    }
+    out.push(
+      <g key="rad" stroke="none">
+        <path d={d} fill="#ffe27a" opacity={0.42} />
+        <circle cx={50} cy={42} r={25} fill="#fff4c0" opacity={0.3} />
+      </g>,
+    );
+  }
+  if (has('shadowAura')) {
+    out.push(
+      <path key="sha" fill="#1a1024" stroke="#8a5ad8" stroke-width={1.4} d="M31 113Q14 99 17 82Q19 72 10.6 59Q24 65 26 77Q27 66 21.4 55Q32.6 63 32.6 77Q33 90 39 104ZM69 113Q86 99 83 82Q81 72 89.4 59Q76 65 74 77Q73 66 78.6 55Q67.4 63 67.4 77Q67 90 61 104ZM14 44Q8.6 35 14.6 27Q14.4 35 20 40ZM86 40Q91.4 31 85.4 23Q85.6 31 80 36Z" />,
+    );
+  }
+  if (has('antiAura')) {
+    // tattered black anti-magic flames
+    out.push(
+      <path key="aab" fill="#1a161e" stroke="#a49ab6" stroke-width={1.3} d="M30 113L18 100L22 98L11 84L16 83L8 68L14 69L9 53L17 60L19 50L24 66L26 58L30 76L33 70L36 90L40 104ZM70 113L82 100L78 98L89 84L84 83L92 68L86 69L91 53L83 60L81 50L76 66L74 58L70 76L67 70L64 90L60 104ZM17 40L13 30L19 34L20 24L23 36ZM83 38L87 28L81 32L80 22L77 34Z" />,
+    );
+  }
   if (has('soulHalo')) {
     out.push(
       <g key="halo">
@@ -616,10 +707,159 @@ export function fxFront(spec: Spec): El | null {
     out.push(<g key="clw">{cl(l.hx, l.hy, 1, 'a')}{cl(r.hx, r.hy, 1, 'b')}</g>);
   }
   if (has('clock')) out.push(clockDial(85, 30, 'clk'));
+  if (has('gimodelo')) out.push(gimodelo(85, 31, 'gim'));
+  if (has('nero')) out.push(nero(74.4, 56.4, 'nero'));
+  if (has('antiAura')) {
+    out.push(
+      <path key="aaf" fill="#1a161e" stroke="#a49ab6" stroke-width={1.1} d="M20 112L14 104L19 105L16 97L22 103L24 98L26 108ZM80 112L86 104L81 105L84 97L78 103L76 98L74 108ZM12 48L8 42L13 44L13 37L16 45Z" />,
+    );
+  }
+  if (has('armScarf')) {
+    // Black Bulls scarf tied around the upper left arm
+    const t = 0.36, u = 1 - t;
+    const cx = (l.sx + l.hx) / 2 - 2.6, cy = (l.sy + l.hy) / 2 - 0.6;
+    const ax = u * u * l.sx + 2 * u * t * cx + t * t * l.hx;
+    const ay = u * u * l.sy + 2 * u * t * cy + t * t * (l.hy - 2.4);
+    const ang = (Math.atan2(l.hy - l.sy, l.hx - l.sx) * 180) / Math.PI - 90;
+    out.push(
+      <g key="asc" transform={`translate(${ax} ${ay}) rotate(${ang})`}>
+        <path d="M-4.6 0Q-9 3 -13 9.6L-10 10.4Q-7.4 5 -4 2.6ZM-4.6 0.6Q-11 1 -14.6 4.4L-12.6 6.4Q-9 3.6 -4.2 2.8Z" fill="#221c26" stroke-width={1.3} />
+        <rect x={-5.2} y={-2} width={10.4} height={4.4} rx={1.2} fill="#221c26" stroke-width={1.4} />
+        <path d="M-4.4 0.2L4.4 0.2" fill="none" stroke="#e2ad35" stroke-width={0.9} />
+        <path d="M-11.6 9.4L-10.4 9.8M-13.6 5.2L-12.8 6" fill="none" stroke="#c42a33" stroke-width={1.2} />
+      </g>,
+    );
+  }
+  if (has('glyphs')) {
+    const g = (x: number, y: number, k: number) =>
+      [
+        `M${x - 3} ${y - 3}L${x + 3} ${y - 3}L${x} ${y + 3}ZM${x} ${y - 3}L${x} ${y + 1}`,
+        `M${x - 3} ${y}A3 3 0 1 0 ${x + 3} ${y}A3 3 0 1 0 ${x - 3} ${y}M${x} ${y - 4}L${x} ${y + 4}`,
+        `M${x - 3} ${y - 3}L${x + 3} ${y + 3}M${x + 3} ${y - 3}L${x - 3} ${y + 3}M${x - 3.4} ${y}L${x + 3.4} ${y}`,
+        `M${x - 2.6} ${y - 3}L${x + 2.6} ${y - 3}L${x - 2.6} ${y + 3}L${x + 2.6} ${y + 3}`,
+      ][k % 4];
+    const d = g(12, 36, 0) + g(88, 28, 1) + g(90, 64, 2) + g(10, 64, 3) + g(80, 100, 1) + g(20, 104, 2);
+    out.push(
+      <g key="gly" fill="none">
+        <path d={d} stroke="#a050ff" stroke-width={4} opacity={0.35} />
+        <path d={d} stroke="#f2deff" stroke-width={1.3} />
+      </g>,
+    );
+  }
+  if (has('seal')) {
+    const x = r.hx + 5, y = r.hy - 12;
+    out.push(
+      <g key="seal">
+        <circle cx={x} cy={y} r={8} fill="#c8a0ff" opacity={0.25} stroke="none" />
+        <path d={`${ell(x, y, 6, 6)}M${x} ${y - 4.4}L${x + 4.4} ${y}L${x} ${y + 4.4}L${x - 4.4} ${y}Z`} fill="none" stroke="#efe0ff" stroke-width={1.3} />
+        <path d={ell(x, y, 1.2, 1.2)} fill="#efe0ff" stroke="none" />
+      </g>,
+    );
+  }
+  if (has('armBlades')) {
+    const bl = `M${l.hx + 1} ${l.hy - 3}Q${l.hx - 12} ${l.hy - 6} ${l.hx - 13} ${l.hy - 25}Q${l.hx - 6} ${l.hy - 13} ${l.hx + 2} ${l.hy - 8}ZM${r.hx - 1} ${r.hy - 3}Q${r.hx + 12} ${r.hy - 6} ${r.hx + 13} ${r.hy - 25}Q${r.hx + 6} ${r.hy - 13} ${r.hx - 2} ${r.hy - 8}Z`;
+    out.push(
+      <g key="abl">
+        <path d={bl} fill="#b8f06a" stroke-width={1.4} />
+        <path d={`M${l.hx - 2} ${l.hy - 5.4}Q${l.hx - 9} ${l.hy - 9} ${l.hx - 11} ${l.hy - 19}M${r.hx + 2} ${r.hy - 5.4}Q${r.hx + 9} ${r.hy - 9} ${r.hx + 11} ${r.hy - 19}`} fill="none" stroke="#f2ffd8" stroke-width={1} />
+      </g>,
+    );
+  }
+  if (has('dreamBubbles')) {
+    out.push(
+      <g key="drb">
+        {bubble(13, 46, 4, 'd1', '#ffa8d0')}
+        {bubble(87, 44, 3.2, 'd2', '#c8a8ff')}
+        {bubble(86, 78, 2.6, 'd3', '#9af0d0')}
+        {bubble(18, 30, 2.2, 'd4', '#ffd0a0')}
+        <path d={sparkle(13, 46.6, 1.8) + sparkle(87, 44.4, 1.4)} fill="#fff" stroke="none" />
+      </g>,
+    );
+  }
+  if (has('zzz')) {
+    const z = (x: number, y: number, k: number) => `M${x} ${y}L${x + 3 * k} ${y}L${x} ${y + 3 * k}L${x + 3 * k} ${y + 3 * k}`;
+    const d = z(73, 12, 1.2) + z(79.6, 6, 1) + z(85.4, 1.6, 0.8);
+    out.push(
+      <g key="zz" fill="none">
+        <path d={d} stroke={OUT} stroke-width={3} />
+        <path d={d} stroke="#e2d6ff" stroke-width={1.4} />
+      </g>,
+    );
+  }
+  if (has('paint')) {
+    out.push(
+      <g key="pnt">
+        {splat(13, 102, 4.2, '#ff4a6a', 'a')}
+        {splat(87, 104, 3.6, '#ffd23a', 'b')}
+        {splat(88, 48, 3.2, '#3a8aff', 'c')}
+        {splat(12, 54, 3, '#4ad06a', 'd')}
+        <path d={`${ell(20, 94, 1.2, 1.2)}${ell(80, 96, 1, 1)}${ell(84, 58, 0.9, 0.9)}`} fill="#b06aff" stroke-width={0.8} />
+      </g>,
+    );
+  }
+  if (has('lightSwords')) {
+    const sw = (x: number, y: number, rot: number, w: number) => {
+      const a = (rot * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+      const P = (px: number, py: number) => `${(x + px * c - py * sn).toFixed(2)} ${(y + px * sn + py * c).toFixed(2)}`;
+      if (w === 0) return `M${P(-1.8, -9)}L${P(1.8, -9)}L${P(1.4, 7)}L${P(0, 11)}L${P(-1.4, 7)}Z`;
+      if (w === 1) return `M${P(-4.4, -9)}L${P(4.4, -9)}L${P(3.6, -11.4)}L${P(-3.6, -11.4)}ZM${P(-1, -11.4)}L${P(1, -11.4)}L${P(1, -16)}L${P(-1, -16)}Z`;
+      return `M${P(-4.4, -12)}L${P(4.4, -12)}L${P(3.4, 9)}L${P(0, 15)}L${P(-3.4, 9)}Z`;
+    };
+    const set: [number, number, number][] = [[14, 40, -14], [86, 34, 12], [89, 70, 22]];
+    const all = (w: number) => set.map(([x, y, rr]) => sw(x, y, rr, w)).join('');
+    out.push(
+      <g key="lsw">
+        <path d={all(2)} fill="#fff2a0" opacity={0.4} stroke="none" />
+        <path d={all(0)} fill="#fffbe8" stroke="#e8b830" stroke-width={1.3} />
+        <path d={all(1)} fill="#f2cf5a" stroke-width={1.2} />
+      </g>,
+    );
+  }
   if (has('salamander')) out.push(salamander(85, 30, 'sal'));
   if (has('bell')) out.push(bell(84, 28, 'bell'));
   if (has('sheep')) out.push(sheep(20, 96, 'shp'));
   return out.length ? <g>{out}</g> : null;
+}
+
+function splat(x: number, y: number, sz: number, col: string, key: string): El {
+  const pts: Pt[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (i * 36 * Math.PI) / 180;
+    const rr = sz * (i % 2 ? 0.72 : 1.15 + (i % 4 === 0 ? 0.25 : 0));
+    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+  }
+  return <path key={key} d={spline(pts)} fill={col} stroke-width={1.2} />;
+}
+
+function gimodelo(x: number, y: number, key: string): El {
+  return (
+    <g key={key} transform={`translate(${x} ${y})`}>
+      <path d="M-3 1Q-10.6 -5 -11.6 3Q-7.6 1 -4.4 5ZM3 1Q10.6 -5 11.6 3Q7.6 1 4.4 5Z" fill="#3e2c50" stroke-width={1.2} />
+      <path d="M2.6 7.4Q8 11 9.4 6" fill="none" stroke-width={1.4} />
+      <ellipse cx={0} cy={5.4} rx={3.8} ry={3.4} fill="#2a2234" stroke-width={1.3} />
+      <circle cx={0} cy={-1} r={4.8} fill="#2a2234" stroke-width={1.3} />
+      <path d="M-2.6 -5Q-8.4 -8.4 -7.4 -1.6Q-6.6 -5.2 -3.6 -3ZM2.6 -5Q8.4 -8.4 7.4 -1.6Q6.6 -5.2 3.6 -3Z" fill="#d8c8a0" stroke-width={1} />
+      <path d="M-2.8 -1.4L-1 -0.6L-2.8 0.2ZM2.8 -1.4L1 -0.6L2.8 0.2Z" fill="#ff4a3a" stroke="none" />
+      <path d="M-1.6 2Q0 3.2 1.6 2" fill="none" stroke="#ff8a7a" stroke-width={0.8} />
+      <path d="M-0.8 3.6L0 6L0.8 3.6Z" fill="#4a3a5a" stroke-width={0.6} />
+    </g>
+  );
+}
+
+function nero(x: number, y: number, key: string): El {
+  return (
+    <g key={key} transform={`translate(${x} ${y}) scale(1.3)`} stroke-width={1}>
+      <path d="M-4 1L-9.4 3.4L-8.4 0.2L-9.8 -1.8L-4 -1Z" fill="#1e1a26" stroke-width={1.1} />
+      <path d="M-1 3.6L-1.2 6.4M1.6 3.6L1.8 6.4" fill="none" stroke="#f2b03a" stroke-width={1.1} />
+      <ellipse cx={0} cy={0} rx={5.2} ry={4.2} fill="#26222e" stroke-width={1.3} />
+      <path d="M-3 -0.6Q0 -2.6 3 0.2Q0 2 -3 -0.6Z" fill="#3e3848" stroke-width={0.8} />
+      <circle cx={3.4} cy={-4.4} r={3.2} fill="#26222e" stroke-width={1.3} />
+      <path d="M2.2 -7.2L1.6 -10L3.4 -7.6L4.6 -10.2L4.6 -7.2Z" fill="#26222e" stroke-width={0.9} />
+      <path d="M6.2 -5L9 -4.2L6.2 -3.4Z" fill="#f2b03a" stroke-width={0.8} />
+      <circle cx={4.4} cy={-4.8} r={1.2} fill="#fff" stroke="none" />
+      <circle cx={4.7} cy={-4.7} r={0.55} fill={OUT} stroke="none" />
+    </g>
+  );
 }
 
 function clockDial(x: number, y: number, key: string): El {

@@ -57,7 +57,7 @@ function Zoom({ ids, px }: { ids: string[]; px: number }) {
 
 function Gallery() {
   if (only.length) return <Zoom ids={only} px={size || 360} />;
-  const flipIds = ['asta', 'yuno', 'noelle', 'yami', 'bandit', 'magic_beast', 'imp', 'lucifero', 'not_a_real_id'];
+  const flipIds = ['asta', 'yuno', 'noelle', 'yami', 'nacht', 'zagred', 'bandit', 'magic_beast', 'imp', 'lucifero', 'not_a_real_id'];
   return (
     <div style={{ padding: '12px', fontFamily: 'system-ui' }}>
       <h2 style={{ color: '#fff', margin: '4px 0 10px' }}>Character art ({ART_IDS.length})</h2>

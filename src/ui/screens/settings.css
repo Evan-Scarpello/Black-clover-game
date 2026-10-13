@@ -1,0 +1,154 @@
+/* ───────── settings toggles + tutorial ───────── */
+
+.set-group {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.set-row {
+  padding: 6px 0;
+  min-height: 46px;
+}
+
+.set-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.set-label .small-text {
+  font-weight: 700;
+}
+
+.toggle.set-switch {
+  position: relative;
+  flex: none;
+  width: 74px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+  background: #2a2140;
+  box-shadow: 0 3px 0 var(--ink);
+  transition: background-color 0.2s;
+}
+
+.toggle.set-switch.on {
+  background: var(--green);
+}
+
+.set-knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--ink);
+  transition: transform 0.22s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+.set-switch.on .set-knob {
+  transform: translateX(37px);
+}
+
+.set-txt {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.set-switch.on .set-txt {
+  right: auto;
+  left: 9px;
+  color: var(--ink);
+}
+
+.set-switch:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.set-cloud {
+  color: var(--muted);
+  text-align: right;
+}
+
+.set-cloud.ok {
+  color: var(--green);
+}
+
+.set-confirm {
+  animation: fadein 0.2s ease-out;
+}
+
+/* tutorial */
+.tut-panel {
+  position: relative;
+  padding-top: 70px;
+  animation: tut-in 0.36s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+@keyframes tut-in {
+  from { transform: translateX(40px) rotate(1deg); opacity: 0; }
+}
+
+.tut-hero {
+  position: absolute;
+  top: -70px;
+  left: 50%;
+  width: 120px;
+  height: 140px;
+  margin-left: -60px;
+  animation: tut-hop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) 0.1s both;
+}
+
+@keyframes tut-hop {
+  from { transform: translateY(24px) scale(0.85); opacity: 0; }
+}
+
+.tutorial li {
+  animation: fadein 0.3s ease-out both;
+}
+
+.tut-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.tut-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: #3a2f58;
+  transition: transform 0.2s;
+}
+
+.tut-dots i.done {
+  background: var(--muted);
+}
+
+.tut-dots i.on {
+  background: var(--gold);
+  transform: scale(1.25);
+}
+
+.tut-skip {
+  display: block;
+  margin: 10px auto 0;
+  min-height: 40px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -18,9 +18,15 @@ it.runIf(!!process.env.DBG)('dbg', () => {
   const starter = ['sol', 'asta', 'magna', 'finral', 'charmy'];
   const mid = ['noelle', 'asta', 'luck', 'finral', 'mimosa'];
   const strong = ['noelle', 'asta', 'yami', 'yuno', 'william'];
+  // Mythic squads: the original five Mythics vs. the five added with the Devil Union update.
+  const oldUR = ['asta', 'yami', 'yuno', 'julius', 'lucius'];
+  const newUR = ['nacht', 'liebe', 'lucifero', 'zagred', 'lumiere'];
   const out: string[] = [JSON.stringify(params)];
   for (const [lvl, ex] of [[1, 0], [5, 0], [10, 0], [20, 1], [30, 1], [50, 2], [80, 3]]) {
-    out.push(`L${lvl}+${ex}: starter ${maxStage(team(starter, lvl, ex))} mid ${maxStage(team(mid, lvl, ex))} strong ${maxStage(team(strong, lvl, ex))}`);
+    out.push(
+      `L${lvl}+${ex}: starter ${maxStage(team(starter, lvl, ex))} mid ${maxStage(team(mid, lvl, ex))} strong ${maxStage(team(strong, lvl, ex))}` +
+        ` | oldUR ${maxStage(team(oldUR, lvl, ex))} newUR ${maxStage(team(newUR, lvl, ex))}`,
+    );
   }
   console.log(out.join('\n'));
 }, 300000);

@@ -1,19 +1,35 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
 import { getHero } from '../../data/heroes';
-import { COST_SINGLE, COST_TEN, PITY_LEGENDARY, PITY_MYTHIC, RATES, getBanners, type PullResult } from '../../game/gacha';
+import { COST_SINGLE, COST_TEN, PITY_LEGENDARY, PITY_MYTHIC, RATES, getBanners, type Banner, type PullResult } from '../../game/gacha';
 import { RARITY_INFO, fmt } from '../../game/stats';
 import { summon, useGame } from '../../game/store';
-import type { Rarity } from '../../game/types';
+import type { HeroDef, Rarity } from '../../game/types';
+import { Burst, CurrencyIcon, HeroCard, Modal, Portal, RarityBadge, toast } from '../components/common';
+import { haptic } from '../haptics';
 import type { Nav } from '../nav';
-import { CurrencyIcon, HeroCard, Modal, Portal, RarityBadge, toast } from '../components/common';
+import { reducedMotion } from '../prefs';
 import { sfx } from '../sfx';
+import './summon.css';
 
 const GLOW: Record<Rarity, string> = { R: '#4fa3ff', SR: '#b46bff', SSR: '#ffc531', UR: '#ff3d6e' };
+const RARITIES: Rarity[] = ['R', 'SR', 'SSR', 'UR'];
+
+function tabLabel(b: Banner): string {
+  return b.tab || (b.id === 'featured' ? '★ Featured' : b.name);
+}
+
+function safeHero(id: string): HeroDef | null {
+  try {
+    return getHero(id);
+  } catch {
+    return null;
+  }
+}
 
 function GrimoireBook({ color }: { color: string }) {
   return (
-    <svg viewBox="0 0 180 180" class="book">
+    <svg viewBox="0 0 180 180" class="book" aria-hidden="true">
       <circle cx="90" cy="90" r="80" fill={color} opacity="0.25" />
       <circle cx="90" cy="90" r="58" fill={color} opacity="0.3" />
       <g stroke="#0b0710" stroke-width="4" stroke-linejoin="round">
@@ -34,91 +50,115 @@ function GrimoireBook({ color }: { color: string }) {
   );
 }
 
-function Reveal({ results, onDone, onAgain, againLabel }: { results: PullResult[]; onDone: () => void; onAgain: () => void; againLabel: string }) {
+function Reveal({ results, onDone, onAgain, again }: { results: PullResult[]; onDone: () => void; onAgain: () => void; again: { label: string; kind: 'tickets' | 'gems'; amt: number; ok: boolean } }) {
   const best = results.reduce((a, r) => Math.max(a, RARITY_INFO[r.hero.rarity].order), 0);
-  const bestR = (['R', 'SR', 'SSR', 'UR'] as Rarity[])[best];
+  const bestR = RARITIES[best];
   const [phase, setPhase] = useState<'book' | 'splash' | 'cards'>('book');
   const splashes = useMemo(() => results.filter((r) => r.hero.rarity === 'UR' || (r.hero.rarity === 'SSR' && r.isNew)), [results]);
   const [splashIdx, setSplashIdx] = useState(0);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const newCount = results.filter((r) => r.isNew).length;
+  const pages = results.reduce((a, r) => a + (r.isNew ? 0 : r.shards), 0);
 
   useEffect(() => {
     sfx.summon();
-    const t = setTimeout(() => advance(), 1700);
+    haptic(best >= 2 ? 'medium' : 'light');
+    const t = setTimeout(() => advance(), reducedMotion() ? 500 : 1700);
     return () => clearTimeout(t);
   }, []);
 
+  // Legendary+ heroes buzz when they appear (splash or, for dupes, the card grid).
   useEffect(() => {
-    if (phase === 'cards') results.forEach((r, i) => setTimeout(() => sfx.reveal(RARITY_INFO[r.hero.rarity].order), i * 110 + 200));
+    if (phase === 'splash') haptic('rare');
+    if (phase !== 'cards') return;
+    if (best >= 2 && !splashes.length) haptic('rare');
+    const ts = results.map((r, i) => setTimeout(() => sfx.reveal(RARITY_INFO[r.hero.rarity].order), i * 110 + 200));
+    return () => ts.forEach(clearTimeout);
   }, [phase]);
 
   function advance() {
-    setPhase((p) => {
-      if (p === 'book') {
-        if (splashes.length) {
-          sfx.reveal(3);
-          return 'splash';
-        }
-        return 'cards';
-      }
-      return p;
-    });
+    if (phaseRef.current !== 'book') return;
+    if (splashes.length) {
+      sfx.reveal(3);
+      setPhase('splash');
+    } else setPhase('cards');
   }
 
   const nextSplash = () => {
     if (splashIdx + 1 < splashes.length) {
       setSplashIdx(splashIdx + 1);
       sfx.reveal(3);
+      haptic('rare');
     } else setPhase('cards');
   };
 
+  const sp = splashes[splashIdx];
   return (
-    <div class="reveal" style={{ '--glow': GLOW[bestR] } as any}>
+    <div class={`reveal reveal-${bestR}`} style={{ '--glow': GLOW[bestR] } as any} role="dialog" aria-modal="true" aria-label="Summon results">
       <div class="rays" />
       {phase === 'book' && (
-        <div onClick={advance} style={{ cursor: 'pointer', position: 'relative' }}>
+        <button class="sum-book" onClick={advance} aria-label="Open the grimoire">
           <GrimoireBook color={GLOW[bestR]} />
-          <div class="comic center" style={{ fontSize: 22, marginTop: 10 }}>
-            The grimoire answers...
-          </div>
-        </div>
+          {best >= 2 && <Burst key="b" count={16} spread={130} colors={[GLOW[bestR], '#fff3a0', '#ffffff']} />}
+          <div class="comic center sum-book-text">The grimoire answers...</div>
+          <div class="muted small-text sum-skip">tap to skip</div>
+        </button>
       )}
-      {phase === 'splash' && splashes[splashIdx] && (
-        <div class="splash" style={{ '--sc': splashes[splashIdx].hero.color } as any} onClick={nextSplash}>
-          <RarityBadge r={splashes[splashIdx].hero.rarity} />
+      {phase === 'splash' && sp && (
+        <button class={`splash sum-splash ${sp.hero.rarity}`} key={splashIdx} style={{ '--sc': sp.hero.color, '--rc': GLOW[sp.hero.rarity] } as any} onClick={nextSplash}>
+          <span class="sum-splash-rays" aria-hidden="true" />
+          <Burst count={22} spread={170} colors={[GLOW[sp.hero.rarity], '#fff3a0', '#ffffff']} />
+          <span class="sum-splash-tier">{RARITY_INFO[sp.hero.rarity].name}!</span>
           <div class="splash-art">
-            <CharacterArt id={splashes[splashIdx].hero.id} mode="full" />
+            <CharacterArt id={sp.hero.id} mode="full" />
           </div>
-          <h2>{splashes[splashIdx].hero.name}</h2>
+          {sp.isNew && <span class="sum-new-stamp">NEW!</span>}
+          <h2>{sp.hero.name}</h2>
           <div class="small-text" style={{ fontWeight: 900, marginTop: 4 }}>
-            {splashes[splashIdx].hero.title}
+            {sp.hero.title}
           </div>
-          <div class="quote" style={{ maxWidth: 280 }}>"{splashes[splashIdx].hero.quote}"</div>
+          <div class="quote" style={{ maxWidth: 280 }}>
+            "{sp.hero.quote}"
+          </div>
           <div class="muted small-text" style={{ marginTop: 14 }}>
-            tap to continue
+            {splashes.length > 1 ? `${splashIdx + 1}/${splashes.length} · ` : ''}tap to continue
           </div>
-        </div>
+        </button>
       )}
       {phase === 'cards' && (
         <>
+          <div class="sum-summary" aria-live="polite">
+            {newCount > 0 && <span class="chip sum-chip-new">{newCount} NEW</span>}
+            {pages > 0 && <span class="chip">+{pages} pages</span>}
+            <span class="chip" style={{ color: GLOW[bestR] }}>
+              Best: {RARITY_INFO[bestR].name}
+            </span>
+          </div>
           <div class={`reveal-grid ${results.length === 1 ? 'single' : ''}`}>
             {results.map((r, i) => (
-              <div class={`flip glow-${r.hero.rarity}`} key={i} style={{ position: 'relative' }}>
+              <div class={`flip glow-${r.hero.rarity}`} key={i} style={{ position: 'relative', '--fd': `${i * 0.11}s` } as any}>
                 <div class="flip-inner" style={{ animationDelay: `${i * 0.11}s`, animationFillMode: 'both' }}>
                   <div class="flip-face">
                     <HeroCard id={r.hero.id} />
                   </div>
                   <div class="flip-face flip-back">🍀</div>
                 </div>
+                {RARITY_INFO[r.hero.rarity].order >= 2 && <span class="sum-flare" aria-hidden="true" />}
                 {r.isNew ? <div class="new-tag">NEW!</div> : <div class="shard-tag">+{r.shards} pages</div>}
               </div>
             ))}
           </div>
-          <div class="row" style={{ marginTop: 22 }}>
+          <div class="row sum-again" style={{ marginTop: 22 }}>
             <button class="btn dark" onClick={onDone}>
               Done
             </button>
-            <button class="btn" onClick={onAgain}>
-              {againLabel}
+            <button class="btn" onClick={onAgain} disabled={!again.ok}>
+              {again.label}
+              <span class="cost">
+                <CurrencyIcon kind={again.kind} size={16} />
+                {fmt(again.amt)}
+              </span>
             </button>
           </div>
         </>
@@ -127,79 +167,113 @@ function Reveal({ results, onDone, onAgain, againLabel }: { results: PullResult[
   );
 }
 
+function BannerArt({ banner }: { banner: Banner }) {
+  const feat = banner.featured.map(safeHero).filter(Boolean) as HeroDef[];
+  if (!feat.length)
+    return (
+      <div class="b-art sum-trio">
+        {['yuno', 'yami', 'noelle'].map((id, i) => (
+          <div key={id} class={i === 1 ? 'mid' : ''}>
+            <CharacterArt id={id} mode="full" />
+          </div>
+        ))}
+      </div>
+    );
+  const [main, ...rest] = feat;
+  return (
+    <>
+      {rest[1] && (
+        <div class="b-art2 sum-side2">
+          <CharacterArt id={rest[1].id} mode="full" />
+        </div>
+      )}
+      {rest[0] && (
+        <div class="b-art2 sum-side1">
+          <CharacterArt id={rest[0].id} mode="full" />
+        </div>
+      )}
+      <div class="b-art sum-main">
+        <CharacterArt id={main.id} mode="full" />
+      </div>
+    </>
+  );
+}
+
 export function Summon({ nav }: { nav: Nav }) {
   const s = useGame();
   const banners = getBanners();
   const [bannerId, setBannerId] = useState(banners[0].id);
-  const banner = banners.find((b) => b.id === bannerId)!;
-  const [results, setResults] = useState<{ list: PullResult[]; count: 1 | 10; key: number } | null>(null);
+  const banner = banners.find((b) => b.id === bannerId) ?? banners[0];
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [results, setResults] = useState<{ list: PullResult[]; count: 1 | 10; key: number; banner: string } | null>(null);
   const [rates, setRates] = useState(false);
+  // One pull at a time: a fast double tap must never spend twice.
+  const busy = useRef(false);
+
+  const doPull = (id: string, count: 1 | 10): boolean => {
+    if (busy.current) return false;
+    busy.current = true;
+    const r = summon(id, count);
+    if (!r) {
+      busy.current = false;
+      haptic('error');
+      return false;
+    }
+    setResults({ list: r, count, key: Date.now(), banner: id });
+    return true;
+  };
 
   const pull = (count: 1 | 10) => {
-    const r = summon(bannerId, count);
-    if (!r) {
-      toast('Not enough gems or tickets! Clear stages and quests to earn more.');
-      return;
-    }
-    setResults({ list: r, count, key: Date.now() });
+    if (results) return;
+    if (!doPull(banner.id, count)) toast('Not enough gems or tickets! Clear stages and quests to earn more.', 'bad');
+  };
+
+  const pick = (b: Banner) => {
+    if (b.id === banner.id) return;
+    const from = banners.findIndex((x) => x.id === banner.id);
+    const to = banners.findIndex((x) => x.id === b.id);
+    setDir(to > from ? 1 : -1);
+    setBannerId(b.id);
+    sfx.click();
+    haptic('tap');
   };
 
   const label = (count: 1 | 10) => (s.currencies.tickets >= count ? { kind: 'tickets' as const, amt: count } : { kind: 'gems' as const, amt: count === 10 ? COST_TEN : COST_SINGLE });
+  const afford = (count: 1 | 10) => s.currencies.tickets >= count || s.currencies.gems >= (count === 10 ? COST_TEN : COST_SINGLE);
   const l1 = label(1);
   const l10 = label(10);
-  const featured = banner.featured.map(getHero);
+  const featured = banner.featured.map(safeHero).filter(Boolean) as HeroDef[];
 
   return (
     <div class="screen">
-      <div class="tabs">
+      <div class="tabs sum-tabs" role="tablist" aria-label="Banners">
         {banners.map((b) => (
-          <button key={b.id} class={`tab ${b.id === bannerId ? 'on' : ''}`} onClick={() => setBannerId(b.id)}>
-            {b.id === 'featured' ? '★ Featured' : 'Standard'}
+          <button key={b.id} role="tab" aria-selected={b.id === banner.id} class={`tab ${b.id === banner.id ? 'on' : ''} ${b.limited ? 'limited' : ''}`} onClick={() => pick(b)}>
+            <span class="sum-tab-lbl">{tabLabel(b)}</span>
+            {b.limited && <span class="sum-tab-spark" aria-hidden="true" />}
           </button>
         ))}
       </div>
 
-      <div class="banner" style={{ '--b1': banner.colors[0], '--b2': banner.colors[1] } as any}>
+      <div class={`banner sum-banner ${banner.limited ? 'limited' : ''} ${dir > 0 ? 'from-r' : 'from-l'}`} key={banner.id} style={{ '--b1': banner.colors[0], '--b2': banner.colors[1] } as any}>
         <div class="b-bg" />
-        {featured.length ? (
-          <>
-            <div class="b-art2" style={{ right: 150, bottom: 10 }}>
-              <CharacterArt id={featured[1].id} mode="full" />
-            </div>
-            <div class="b-art2" style={{ right: 100, bottom: -4, width: 96, height: 116 }}>
-              <CharacterArt id={featured[2].id} mode="full" />
-            </div>
-            <div class="b-art">
-              <CharacterArt id={featured[0].id} mode="full" />
-            </div>
-          </>
-        ) : (
-          <div class="b-art" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: 260, right: -20 }}>
-            {['yuno', 'yami', 'noelle'].map((id, i) => (
-              <div key={id} style={{ width: i === 1 ? 120 : 92, height: i === 1 ? 150 : 112, margin: '0 -14px', zIndex: i === 1 ? 2 : 1 }}>
-                <CharacterArt id={id} mode="full" />
-              </div>
-            ))}
-          </div>
-        )}
+        <BannerArt banner={banner} />
         <div class="b-text">
-          <div class="chip on" style={{ marginBottom: 6 }}>
-            {banner.id === 'featured' ? 'RATE UP · THIS WEEK' : 'ALWAYS OPEN'}
-          </div>
+          <div class={`chip on sum-badge ${banner.limited ? 'lim' : ''}`}>{banner.badge || (banner.id === 'featured' ? 'RATE UP · THIS WEEK' : 'ALWAYS OPEN')}</div>
           <h2>{banner.name}</h2>
-          <div class="b-tag">{banner.tagline}</div>
         </div>
+        <div class="b-tag sum-tagline">{banner.tagline}</div>
       </div>
 
       <div class="pull-btns">
-        <button class="btn blue" onClick={() => pull(1)}>
+        <button onClick={() => pull(1)} aria-disabled={!afford(1)} class={`btn blue ${afford(1) ? '' : 'sum-poor'}`}>
           Summon ×1
           <span class="cost">
             <CurrencyIcon kind={l1.kind} size={16} />
             {fmt(l1.amt)}
           </span>
         </button>
-        <button class="btn" onClick={() => pull(10)}>
+        <button onClick={() => pull(10)} aria-disabled={!afford(10)} class={`btn sum-ten ${afford(10) ? '' : 'sum-poor'}`}>
           Summon ×10
           <span class="cost">
             <CurrencyIcon kind={l10.kind} size={16} />
@@ -210,12 +284,18 @@ export function Summon({ nav }: { nav: Nav }) {
 
       <div class="panel" style={{ marginTop: 12 }}>
         <div class="spread">
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div class="small-text">
-              Legendary+ guaranteed in <b style={{ color: 'var(--ssr)' }}>{PITY_LEGENDARY - s.gacha.pity}</b> summons
+              Legendary+ guaranteed in <b style={{ color: 'var(--ssr)' }}>{Math.max(1, PITY_LEGENDARY - s.gacha.pity)}</b> summons
+            </div>
+            <div class="bar sum-pity" aria-hidden="true">
+              <i style={{ width: `${Math.min(100, (s.gacha.pity / PITY_LEGENDARY) * 100)}%`, background: 'linear-gradient(90deg,#ff9f1c,#ffc531)' }} />
             </div>
             <div class="small-text">
-              Mythic guaranteed in <b style={{ color: 'var(--ur)' }}>{PITY_MYTHIC - s.gacha.mythicPity}</b> summons
+              Mythic guaranteed in <b style={{ color: 'var(--ur)' }}>{Math.max(1, PITY_MYTHIC - s.gacha.mythicPity)}</b> summons
+            </div>
+            <div class="bar sum-pity" aria-hidden="true">
+              <i style={{ width: `${Math.min(100, (s.gacha.mythicPity / PITY_MYTHIC) * 100)}%`, background: 'linear-gradient(90deg,#b46bff,#ff3d6e)' }} />
             </div>
             <div class="small-text muted">Every ×10 includes at least one Epic or better.{!s.gacha.firstTen && ' Your first ×10 guarantees a Legendary!'}</div>
           </div>
@@ -228,7 +308,7 @@ export function Summon({ nav }: { nav: Nav }) {
       {featured.length > 0 && (
         <div class="panel">
           <h3 class="panel-title">Featured Heroes</h3>
-          <div class="hero-grid">
+          <div class="hero-grid sum-feat">
             {featured.map((h) => (
               <HeroCard key={h.id} id={h.id} owned={s.heroes[h.id]} onClick={() => nav.openHero(h.id)} />
             ))}
@@ -237,36 +317,41 @@ export function Summon({ nav }: { nav: Nav }) {
       )}
 
       {rates && (
-        <Modal center onClose={() => setRates(false)}>
+        <Modal center onClose={() => setRates(false)} label="Summon rates">
           <h3 class="panel-title">Summon Rates</h3>
-          {(['UR', 'SSR', 'SR', 'R'] as Rarity[]).map((r) => (
-            <div class="spread" key={r} style={{ padding: '4px 0' }}>
-              <RarityBadge r={r} />
-              <b>{(RATES[r] * 100).toFixed(1)}%</b>
-            </div>
-          ))}
+          {RARITIES.slice()
+            .reverse()
+            .map((r) => (
+              <div class="spread" key={r} style={{ padding: '4px 0' }}>
+                <RarityBadge r={r} />
+                <b>{(RATES[r] * 100).toFixed(1)}%</b>
+              </div>
+            ))}
           <p class="small-text muted">
-            Featured heroes take 50% of their rarity's share. Legendary+ is guaranteed within {PITY_LEGENDARY} summons and a Mythic within {PITY_MYTHIC}. Duplicates become 10 grimoire pages (20 for
-            Mythics) used for Star Ups.
+            Featured heroes take 50% of their rarity's share{banner.limited ? ' (each limited Mythic takes 25%)' : ''}. Legendary+ is guaranteed within {PITY_LEGENDARY} summons and a Mythic within {PITY_MYTHIC}. Duplicates become
+            grimoire pages used for Star Ups.
           </p>
         </Modal>
       )}
 
       {results && (
         <Portal>
-        <Reveal
-          key={results.key}
-          results={results.list}
-          againLabel={`Again ×${results.count}`}
-          onDone={() => setResults(null)}
-          onAgain={() => {
-            const r = summon(bannerId, results.count);
-            if (!r) {
-              toast('Not enough gems or tickets!');
+          <Reveal
+            key={results.key}
+            results={results.list}
+            again={{ label: `Again ×${results.count}`, ...label(results.count), ok: afford(results.count) }}
+            onDone={() => {
+              busy.current = false;
               setResults(null);
-            } else setResults({ list: r, count: results.count, key: Date.now() });
-          }}
-        />
+            }}
+            onAgain={() => {
+              busy.current = false;
+              if (!doPull(results.banner, results.count)) {
+                toast('Not enough gems or tickets!', 'bad');
+                setResults(null);
+              }
+            }}
+          />
         </Portal>
       )}
     </div>

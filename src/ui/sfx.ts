@@ -82,6 +82,9 @@ export const sfx = {
     tone(220, 1.2, 'sine', 0.06, 660);
     noise(0.6, 0.06, 0.6);
   },
+  levelUp: () => gate('lvl', 60) && [659, 880].forEach((f, i) => tone(f, 0.09, 'square', 0.04, 0, i * 0.05)),
+  starUp: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'square', 0.045, 0, i * 0.08)),
+  swap: () => gate('swap', 60) && tone(440, 0.08, 'triangle', 0.06, 220),
   reveal: (tier: number) => {
     const base = [523, 587, 784, 1047][tier] ?? 523;
     tone(base, 0.3, 'triangle', 0.07);

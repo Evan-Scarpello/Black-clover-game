@@ -1,0 +1,588 @@
+/* ───────── Tower of Trials ───────── */
+
+.tw-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tw-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: var(--halftone), linear-gradient(90deg, #2c2150, #1f1838);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.tw-best-box {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: none;
+}
+
+.tw-best-label {
+  font-family: var(--comic);
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.tw-best {
+  font-family: var(--comic);
+  font-size: 28px;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.tw-goal-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.tw-goal-floor {
+  flex: none;
+  font-family: var(--comic);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+
+.tw-goal-btn .tw-rew {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* the scrolling tower window */
+
+.tw-view {
+  position: relative;
+  height: clamp(250px, calc(100dvh - 530px), 470px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 4px 4px 0 var(--ink);
+  background: linear-gradient(180deg, #0d0a24 0%, #2a1f55 55%, #4a3470 100%);
+  scrollbar-width: none;
+}
+
+.tw-view::-webkit-scrollbar {
+  display: none;
+}
+
+.tw-sky {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 18px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0.8px, transparent 1.4px) 0 0 / 37px 41px,
+    radial-gradient(circle, rgba(255, 255, 255, 0.35) 0.8px, transparent 1.4px) 13px 19px / 53px 47px,
+    var(--halftone);
+}
+
+.tw-top {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  flex: none;
+}
+
+.tw-moon {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 36%, #fffbe0, #ffe48a 60%, #e6b84a);
+  border: 3px solid var(--ink);
+  box-shadow: 0 0 24px rgba(255, 228, 138, 0.45);
+}
+
+.tw-cloud {
+  position: absolute;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(220, 210, 255, 0.14);
+  pointer-events: none;
+}
+
+.tw-cloud.c1 {
+  top: 30px;
+  left: 8%;
+  width: 96px;
+}
+
+.tw-cloud.c2 {
+  top: 66px;
+  right: 10%;
+  width: 70px;
+}
+
+.tw-mist {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  text-align: center;
+  font-family: var(--comic);
+  letter-spacing: 0.05em;
+  font-size: 14px;
+  color: rgba(230, 222, 255, 0.75);
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.tw-parapet {
+  width: min(300px, 86%);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0;
+  margin-bottom: -3px;
+}
+
+.tw-parapet span {
+  width: 30px;
+  height: 18px;
+  border: 3px solid var(--ink);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #4a4166;
+}
+
+.tw-stack {
+  position: relative;
+  width: min(300px, 86%);
+  display: flex;
+  flex-direction: column;
+  border-left: 3px solid var(--ink);
+  border-right: 3px solid var(--ink);
+  border-top: 3px solid var(--ink);
+  background: #2c2545;
+}
+
+.tw-floor {
+  --stone: #4f4670;
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  height: 60px;
+  padding: 0 10px 0 6px;
+  border: none;
+  border-bottom: 3px solid var(--ink);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.38), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.38)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='24'%3E%3Cpath d='M0 1H44M0 13H44M11 1V13M33 13V25' stroke='%23000' stroke-opacity='.32' stroke-width='2' fill='none'/%3E%3C/svg%3E"),
+    var(--stone);
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+  transition: transform 0.12s;
+}
+
+.tw-floor:active {
+  transform: scale(0.98);
+}
+
+.tw-floor.done {
+  --stone: #4d5a6e;
+}
+
+.tw-floor.locked {
+  --stone: #352d4e;
+}
+
+.tw-floor.boss {
+  --stone: #6a3346;
+}
+
+.tw-floor.boss.done {
+  --stone: #5a3c4a;
+}
+
+.tw-floor.boss.locked {
+  --stone: #4a2436;
+}
+
+.tw-floor.trial {
+  --stone: #5b3a7e;
+}
+
+.tw-floor.trial.locked {
+  --stone: #3f2a5c;
+}
+
+.tw-floor.current {
+  --stone: #7766a8;
+  z-index: 2;
+  outline: 3px solid var(--gold);
+  outline-offset: -3px;
+}
+
+.tw-floor.current::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 8px;
+  box-shadow: 0 0 18px 4px rgba(255, 197, 49, 0.55);
+  pointer-events: none;
+  animation: tw-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes tw-glow {
+  50% { opacity: 0.35; }
+}
+
+.tw-floor.sel::before {
+  content: '▶';
+  position: absolute;
+  left: -26px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 2px 2px 0 var(--ink), -1px -1px 0 var(--ink);
+  animation: tw-point 0.9s ease-in-out infinite;
+}
+
+@keyframes tw-point {
+  50% { transform: translate(4px, -50%); }
+}
+
+.tw-plaque {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2a2140, #17112a);
+  font-family: var(--comic);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.tw-plaque small {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.tw-floor.current .tw-plaque {
+  background: linear-gradient(180deg, #ffe07a, var(--gold) 60%, var(--gold2));
+  color: var(--ink);
+}
+
+.tw-floor.current .tw-plaque small {
+  color: #5a3a00;
+}
+
+.tw-window {
+  justify-self: center;
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--ink);
+  border-radius: 24px 24px 6px 6px;
+  overflow: hidden;
+  position: relative;
+  background: radial-gradient(circle at 50% 70%, #3b2f5c, #120c22);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.tw-window-art {
+  position: absolute;
+  inset: 4px 2px 0;
+}
+
+.tw-floor.current .tw-window {
+  background: radial-gradient(circle at 50% 60%, #fff3b0, #ffb347 60%, #8a4a12);
+}
+
+.tw-floor.done .tw-window-art {
+  filter: grayscale(0.85) brightness(0.8);
+}
+
+.tw-floor.locked .tw-window-art {
+  filter: brightness(0) drop-shadow(0 0 2px rgba(180, 160, 255, 0.6));
+  opacity: 0.85;
+}
+
+.tw-floor.boss.locked .tw-window {
+  background: radial-gradient(circle at 50% 70%, #a3243c, #2a0a14);
+}
+
+.tw-floor.trial.locked .tw-window {
+  background: radial-gradient(circle at 50% 70%, #8a49d6, #1e0f38);
+}
+
+.tw-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 52px;
+}
+
+.tw-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  font-family: var(--comic);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.tw-tag.boss {
+  background: #d62839;
+  color: #fff;
+}
+
+.tw-tag.trial {
+  background: linear-gradient(135deg, #b46bff, #ff9f1c);
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.tw-tag.gift {
+  background: #2d1f4a;
+  font-size: 13px;
+}
+
+.tw-tag.ok {
+  background: var(--green);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.tw-tag.go {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.tw-folded {
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-bottom: 3px solid var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='24'%3E%3Cpath d='M0 1H44M0 13H44M11 1V13M33 13V25' stroke='%23000' stroke-opacity='.32' stroke-width='2' fill='none'/%3E%3C/svg%3E"),
+    #3f4a5c;
+  font-family: var(--comic);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: #c9f5d9;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.tw-base {
+  position: relative;
+  width: 100%;
+  height: 92px;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(180deg, #3c6b2f 0 14px, #2c4f24 14px 100%);
+  border-top: 3px solid var(--ink);
+}
+
+.tw-base::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(min(300px, 86%) + 30px);
+  height: 26px;
+  background: #4d4566;
+  border: 3px solid var(--ink);
+  border-top: none;
+}
+
+.tw-door {
+  position: absolute;
+  top: -48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 66px;
+  border: 3px solid var(--ink);
+  border-radius: 24px 24px 0 0;
+  background: repeating-linear-gradient(90deg, #5b3a1e 0 8px, #4a2e17 8px 10px);
+  z-index: 1;
+}
+
+.tw-torch {
+  position: absolute;
+  top: -40px;
+  font-size: 18px;
+  z-index: 1;
+  animation: tw-flicker 0.8s ease-in-out infinite alternate;
+}
+
+.tw-torch.l {
+  left: calc(50% - 56px);
+}
+
+.tw-torch.r {
+  left: calc(50% + 38px);
+}
+
+@keyframes tw-flicker {
+  to { transform: scale(1.12) translateY(-1px); opacity: 0.85; }
+}
+
+.tw-sign {
+  position: absolute;
+  bottom: 14px;
+  padding: 3px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffd95a, var(--gold) 55%, var(--gold2));
+  color: var(--ink);
+  font-family: var(--comic);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  box-shadow: 0 3px 0 var(--ink);
+  transform: rotate(-2deg);
+}
+
+/* preview card */
+
+.panel.tw-card {
+  margin: 0;
+}
+
+.panel.tw-card.boss {
+  background: var(--halftone), linear-gradient(180deg, #3a1f30, var(--panel));
+}
+
+.panel.tw-card.trial {
+  background: var(--halftone), linear-gradient(180deg, #3d2459, var(--panel));
+}
+
+.tw-card-title {
+  margin: 0;
+}
+
+.tw-card-title .tw-tag {
+  font-size: 14px;
+  text-shadow: none;
+}
+
+.tw-sub {
+  margin: 2px 0 8px;
+}
+
+.tw-twist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(180, 107, 255, 0.35), rgba(255, 159, 28, 0.25));
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.tw-twist-ico {
+  font-size: 20px;
+  flex: none;
+}
+
+.tw-lineup {
+  margin-bottom: 8px;
+}
+
+.tw-vs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 6px;
+}
+
+.tw-vs .power {
+  font-size: 20px;
+}
+
+.tw-vs .comic {
+  font-size: 18px;
+}
+
+.tw-first {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 28px;
+  margin-bottom: 10px;
+}
+
+.tw-first-label {
+  color: var(--green);
+  font-weight: 900;
+}
+
+.tw-rew {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.tw-rew-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.tw-go {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-floor.current::after,
+  .tw-floor.sel::before,
+  .tw-torch {
+    animation: none;
+  }
+}

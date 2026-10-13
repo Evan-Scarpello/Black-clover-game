@@ -1,268 +1,441 @@
-import { useState } from 'preact/hooks';
+// The Black Bulls hideout base map: an illustrated town you scroll through, with a landmark
+// for every feature page in the registry, the Grimoire Tower (Summon), the campaign gate,
+// your squad idling outside, an event rail and a dock with the AFK chest + next battle.
+import type { ComponentChildren } from 'preact';
+import { memo } from 'preact/compat';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
-import { AFK_CAP_HOURS, afkRates, getStage } from '../../data/campaign';
-import { BONUS_QUEST, DAILY_QUESTS, claimable } from '../../game/quests';
-import { fmt } from '../../game/stats';
+import { getStage } from '../../data/campaign';
+import { getHero } from '../../data/heroes';
 import { teamPower } from '../../game/power';
-import { afkPending, claimAfk, fastReward, fastRewardCost, playerTeam, useGame, FAST_REWARD_HOURS } from '../../game/store';
-import type { Nav } from '../nav';
-import { SCREENS } from './registry';
-import { CurrencyIcon, formatDuration, toast, useNow } from '../components/common';
+import { BONUS_QUEST, DAILY_QUESTS, claimable } from '../../game/quests';
+import type { SaveState } from '../../game/state';
+import { fmt } from '../../game/stats';
+import { afkPending, playerTeam, useGame } from '../../game/store';
+import { toast } from '../components/common';
+import { haptic } from '../haptics';
+import { AfkModal, CHEST_READY_HOURS, ChestArt, DockChest } from '../hub/AfkChest';
+import { Backdrop, LAMPS } from '../hub/Backdrop';
+import { ART_RATIO, FloatingGrimoire, LandmarkArt, Pennant, SCREEN_ART, type ArtKind } from '../hub/art';
+import { HIDEOUT_SPOT, MAP_W, SQUAD_XS, SQUAD_Y, SUMMON_SPOT, layoutHub } from '../hub/layout';
+import '../hub/hub.css';
+import { unlockText } from '../motion';
+import type { Nav, ScreenDef, ScreenId } from '../nav';
 import { sfx } from '../sfx';
+import { SCREENS, SCREEN_MAP } from './registry';
 
-export function HideoutScene() {
+/** Sky trimmed off the top of the map (map units) so the town starts higher on screen. */
+const CROP = 70;
+
+function safeBadge(d: ScreenDef | undefined, s: SaveState): boolean {
+  if (!d?.badge) return false;
+  try {
+    return !!d.badge(s);
+  } catch {
+    return false;
+  }
+}
+
+// ───────── geometry helpers (map units → % of the map box) ─────────
+
+interface Frame {
+  h: number;
+}
+const px = (x: number) => `${((x / MAP_W) * 100).toFixed(3)}%`;
+const py = (f: Frame, y: number) => `${(((y - CROP) / (f.h - CROP)) * 100).toFixed(3)}%`;
+
+// ───────── decorations that animate on top of the static art ─────────
+
+type Deco = { t: 'flag' | 'glow' | 'spark'; x: number; y: number; c?: string };
+const DECO: Partial<Record<ArtKind, Deco[]>> = {
+  arena: [
+    { t: 'flag', x: 12, y: 4, c: '#e63946' },
+    { t: 'flag', x: 88, y: 4, c: '#ffc531' },
+  ],
+  clan: [{ t: 'flag', x: 50, y: 2, c: '#b46bff' }],
+  pass: [{ t: 'flag', x: 50, y: 1, c: '#ffc531' }],
+  hideout: [{ t: 'flag', x: 50, y: -10, c: '#c62828' }],
+  trials: [
+    { t: 'glow', x: 50, y: 36, c: '#ff4b5c' },
+    { t: 'glow', x: 50, y: 72, c: '#ff4b5c' },
+  ],
+  gate: [
+    { t: 'glow', x: 20, y: 45, c: '#ffd36b' },
+    { t: 'glow', x: 80, y: 45, c: '#ffd36b' },
+  ],
+  market: [{ t: 'spark', x: 62, y: 56 }],
+  trophy: [{ t: 'spark', x: 50, y: 22 }],
+  post: [{ t: 'spark', x: 54, y: 36 }],
+  missions: [{ t: 'spark', x: 50, y: 40 }],
+};
+
+function Decos({ kind }: { kind: ArtKind }) {
+  const list = DECO[kind];
+  if (!list) return null;
   return (
-    <svg class="scene-bg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMax slice">
-      <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#2b1b52" />
-          <stop offset="0.55" stop-color="#c2508a" />
-          <stop offset="1" stop-color="#ffb36b" />
-        </linearGradient>
-      </defs>
-      <rect width="400" height="300" fill="url(#sky)" />
-      <circle cx="320" cy="70" r="26" fill="#fff3c4" opacity="0.9" />
-      <g fill="#fff" opacity="0.6">
-        <circle cx="40" cy="30" r="1.5" />
-        <circle cx="120" cy="18" r="1.2" />
-        <circle cx="210" cy="40" r="1.4" />
-        <circle cx="260" cy="14" r="1" />
-        <circle cx="380" cy="30" r="1.3" />
-      </g>
-      <path d="M0 190 L60 140 L110 175 L170 120 L230 170 L290 130 L350 168 L400 140 L400 300 L0 300Z" fill="#4a2d6b" />
-      <path d="M0 215 L80 180 L150 205 L220 175 L300 200 L400 178 L400 300 L0 300Z" fill="#3b2457" />
-      {/* Black Bulls hideout */}
-      <g stroke="#0b0710" stroke-width="3" stroke-linejoin="round">
-        <rect x="150" y="96" width="100" height="120" fill="#3a3046" />
-        <rect x="128" y="140" width="40" height="76" fill="#463a55" />
-        <rect x="232" y="128" width="46" height="88" fill="#463a55" />
-        <path d="M144 98 L200 52 L256 98Z" fill="#26202f" />
-        <path d="M124 142 L148 116 L172 142Z" fill="#26202f" />
-        <path d="M228 130 L255 100 L282 130Z" fill="#26202f" />
-        <rect x="190" y="30" width="20" height="30" fill="#463a55" />
-        {/* bull horns emblem */}
-        <path d="M180 66 Q170 50 178 40 Q184 56 196 60Z M220 66 Q230 50 222 40 Q216 56 204 60Z" fill="#e8dcc8" />
-        <circle cx="200" cy="68" r="11" fill="#c62828" />
-        <rect x="186" y="170" width="28" height="46" rx="12" fill="#2a1d14" />
-      </g>
-      <g fill="#ffd36b" stroke="#0b0710" stroke-width="2">
-        <rect x="166" y="112" width="14" height="18" rx="3" />
-        <rect x="220" y="112" width="14" height="18" rx="3" />
-        <rect x="193" y="120" width="14" height="18" rx="3" />
-        <rect x="140" y="158" width="12" height="15" rx="3" />
-        <rect x="248" y="146" width="12" height="15" rx="3" />
-      </g>
-      <path d="M200 30 L200 8" stroke="#0b0710" stroke-width="3" />
-      <path d="M200 8 L224 14 L200 22Z" fill="#c62828" stroke="#0b0710" stroke-width="2" />
-      <path d="M0 238 Q100 222 200 232 T400 228 L400 300 L0 300Z" fill="#4f7a34" stroke="#0b0710" stroke-width="3" />
-      <path d="M0 262 Q120 250 220 258 T400 254 L400 300 L0 300Z" fill="#3e6528" />
-    </svg>
+    <>
+      {list.map((d, i) => (
+        <span key={i} class={`lm-deco lm-${d.t}`} style={{ left: `${d.x}%`, top: `${d.y}%`, '--c': d.c ?? '#fff3a0', animationDelay: `${-i * 0.7}s` } as any} aria-hidden="true">
+          {d.t === 'flag' && <Pennant color={d.c} />}
+        </span>
+      ))}
+    </>
   );
 }
 
-function Chest({ pct, onClick }: { pct: number; onClick: () => void }) {
-  const glow = Math.min(1, pct);
+// ───────── a tappable landmark ─────────
+
+interface LandmarkProps {
+  f: Frame;
+  x: number;
+  y: number;
+  w: number;
+  art: ArtKind;
+  title: string;
+  icon: string;
+  /** "Clear 1-5" when locked. */
+  lock?: string | null;
+  badge?: boolean;
+  /** Extra line under the label (e.g. "3-8"). */
+  sub?: string;
+  aria: string;
+  onTap: () => void;
+  children?: ComponentChildren;
+  idx: number;
+  id?: string;
+}
+
+function Landmark({ f, x, y, w, art, title, icon, lock, badge, sub, aria, onTap, children, idx, id }: LandmarkProps) {
+  const [hit, setHit] = useState(0);
+  const btn = useRef<HTMLButtonElement>(null);
+  // Keep labels near the map edges fully on screen by nudging them inward.
+  useLayoutEffect(() => {
+    const el = btn.current;
+    if (!el) return;
+    const fit = () => {
+      const map = el.closest('.hub-map');
+      if (!map) return;
+      const m = map.getBoundingClientRect();
+      if (!m.width) return;
+      el.style.removeProperty('--nx');
+      let nx = 0;
+      el.querySelectorAll<HTMLElement>('.lm-label, .lm-sub').forEach((lab) => {
+        const r = lab.getBoundingClientRect();
+        if (r.left < m.left + 4) nx = Math.max(nx, m.left + 4 - r.left);
+        else if (r.right > m.right - 4) nx = Math.min(nx, m.right - 4 - r.right);
+      });
+      if (nx) el.style.setProperty('--nx', `${nx.toFixed(1)}px`);
+    };
+    fit();
+    let live = true;
+    // Label widths change once the comic font arrives.
+    document.fonts?.ready.then(() => live && fit()).catch(() => {});
+    window.addEventListener('resize', fit);
+    return () => {
+      live = false;
+      window.removeEventListener('resize', fit);
+    };
+  }, [title, lock, sub]);
   return (
-    <svg class={`chest ${pct >= 0.25 ? 'full' : ''}`} viewBox="0 0 86 78" onClick={onClick}>
-      <ellipse cx="43" cy="72" rx="34" ry="5" fill="rgba(0,0,0,.35)" />
-      <circle cx="43" cy="36" r={30 * glow} fill="#ffd36b" opacity={0.25 * glow} />
-      <g stroke="#0b0710" stroke-width="3" stroke-linejoin="round">
-        <rect x="10" y="34" width="66" height="36" rx="5" fill="#8d4a1f" />
-        <path d="M10 36 Q10 10 43 10 Q76 10 76 36Z" fill="#a85a26" />
-        <rect x="8" y="32" width="70" height="8" rx="3" fill="#ffc531" />
-        <rect x="36" y="30" width="14" height="18" rx="3" fill="#ffc531" />
-        <path d="M20 13 L20 70 M66 13 L66 70" stroke="#ffc531" stroke-width="4" />
-      </g>
-      <circle cx="43" cy="40" r="3" fill="#0b0710" />
-      {pct > 0.05 && (
-        <g>
-          <circle cx="30" cy="8" r="5" fill="#ffc531" stroke="#0b0710" stroke-width="2" />
-          <circle cx="55" cy="6" r="4" fill="#3ddc84" stroke="#0b0710" stroke-width="2" />
-          <circle cx="44" cy="2" r="3" fill="#4fc3f7" stroke="#0b0710" stroke-width="2" />
-        </g>
-      )}
-    </svg>
+    <button
+      ref={btn}
+      class={`lm lm-k-${art} ${lock ? 'locked' : ''}`}
+      data-landmark={id ?? art}
+      style={{ left: px(x), top: py(f, y), width: px(w), zIndex: Math.round(y), '--d': `${(-idx * 0.83).toFixed(2)}s` } as any}
+      aria-label={aria}
+      onClick={() => {
+        setHit((h) => h + 1);
+        onTap();
+      }}
+    >
+      <span class={`lm-art ${hit ? (lock ? 'lm-shake' : 'lm-pop') : ''}`} key={hit} style={{ aspectRatio: `100 / ${Math.round(ART_RATIO[art] * 100)}` }}>
+        <LandmarkArt kind={art} />
+        {!lock && <Decos kind={art} />}
+        {children}
+      </span>
+      <span class="lm-label">
+        <span class="lm-ico" aria-hidden="true">
+          {lock ? '🔒' : icon}
+        </span>
+        <span class="lm-name">{title}</span>
+        {badge && !lock && <span class="badge-dot lm-dot" />}
+      </span>
+      {(lock || sub) && <span class={`lm-sub ${lock ? 'lm-req' : ''}`}>{lock ?? sub}</span>}
+    </button>
   );
 }
+
+// ───────── squad idling in front of the hideout ─────────
+
+const QUIPS = ['Ready!', "Let's go!", 'Need a nap…', 'Train harder!', 'Snacks?', 'Next stage!', 'Watch this!', 'Bring it on!'];
+
+const SquadIdle = memo(function SquadIdle({ f, ids, power, onOpen }: { f: Frame; ids: string[]; power: number; onOpen: () => void }) {
+  const [talk, setTalk] = useState<{ id: string; text: string; k: number } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Lead in the middle, the others fanned out around them.
+  const order = ids.length ? [ids[1], ids[2], ids[0], ids[3], ids[4]] : [];
+  const poke = (id: string) => {
+    haptic('light');
+    sfx.click();
+    const text = QUIPS[Math.floor(Math.random() * QUIPS.length)];
+    setTalk((t) => ({ id, text, k: (t?.k ?? 0) + 1 }));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setTalk(null), 1800);
+  };
+  return (
+    <div class="hub-squad" style={{ top: py(f, SQUAD_Y) }}>
+      {order.map((id, i) => {
+        if (!id) return null;
+        let name = id;
+        try {
+          name = getHero(id).name;
+        } catch {
+          /* unknown id in an old save */
+        }
+        const lead = i === 2;
+        const w = lead ? 74 : 62;
+        return (
+          <button
+            key={id}
+            class={`hub-hero ${lead ? 'lead' : ''} ${talk?.id === id ? 'hop' : ''}`}
+            style={{ left: px(SQUAD_XS[i]), width: px(w), '--d': `${(-i * 0.55).toFixed(2)}s`, zIndex: lead ? 3 : 2 } as any}
+            onClick={() => poke(id)}
+            aria-label={`${name}, squad member`}
+          >
+            <span class="hub-hero-art" key={talk?.id === id ? talk.k : 0}>
+              <CharacterArt id={id} mode="full" />
+            </span>
+            {talk?.id === id && (
+              <span class="hub-bubble" key={`b${talk.k}`} aria-live="polite">
+                {talk.text}
+              </span>
+            )}
+          </button>
+        );
+      })}
+      <button class="hub-squad-tag" onClick={onOpen} aria-label={`Squad, power ${fmt(power)}. Open squad setup`}>
+        <span aria-hidden="true">🛡️</span> Squad <span class="power">⚡{fmt(power)}</span>
+      </button>
+    </div>
+  );
+});
+
+// ───────── event rail ─────────
+
+type RailItem = { kind: 'screen'; id: ScreenId } | { kind: 'quests' };
+const RAIL: RailItem[] = [{ kind: 'screen', id: 'login' }, { kind: 'screen', id: 'pass' }, { kind: 'quests' }, { kind: 'screen', id: 'shop' }];
+
+function EventRail({ nav, s }: { nav: Nav; s: SaveState }) {
+  const questsReady = [...DAILY_QUESTS, BONUS_QUEST].filter((q) => claimable(s, q)).length;
+  return (
+    <div class="hub-rail-anchor">
+      <div class="hub-rail" role="toolbar" aria-label="Events">
+        {RAIL.map((r, i) => {
+          if (r.kind === 'quests')
+            return (
+              <button key="quests" class="rail-btn" style={{ '--i': i } as any} onClick={() => nav.openQuests()} aria-label={questsReady ? `Daily quests, ${questsReady} ready` : 'Daily quests'}>
+                <span class="rail-ico" aria-hidden="true">
+                  📜
+                </span>
+                <span class="rail-lbl">Quests</span>
+                {questsReady > 0 && <span class="rail-count">{questsReady}</span>}
+              </button>
+            );
+          const d = SCREEN_MAP[r.id];
+          if (!d) return null;
+          const lock = unlockText(d.unlockStage, s.stage);
+          const badge = !lock && safeBadge(d, s);
+          const short = d.title.split(' ').pop() ?? d.title;
+          return (
+            <button
+              key={r.id}
+              class={`rail-btn ${lock ? 'locked' : ''}`}
+              style={{ '--i': i } as any}
+              onClick={() => nav.open(r.id)}
+              aria-label={`${d.title}${lock ? `, locked. ${lock} to unlock` : badge ? ', reward ready' : ''}`}
+            >
+              <span class="rail-ico" aria-hidden="true">
+                {lock ? '🔒' : d.icon}
+              </span>
+              <span class="rail-lbl">{short}</span>
+              {badge && <span class="badge-dot rail-dot" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ───────── the hub ─────────
 
 export function Home({ nav }: { nav: Nav }) {
   const s = useGame();
-  const now = useNow(1000);
-  const p = afkPending(now);
-  const rates = afkRates(s.stage);
-  const [bursts, setBursts] = useState<{ id: number; kind: 'yul' | 'essence' | 'gems'; dx: number; dy: number; x: number; y: number }[]>([]);
+  const [afk, setAfk] = useState(false);
+
+  const ids = SCREENS.map((d) => d.id);
+  const layout = useMemo(() => layoutHub(ids), [ids.join(',')]);
+  const f: Frame = { h: layout.height };
+  const spurs = useMemo(() => layout.placements.map((p) => `${p.plot.x},${p.plot.y}`).join(';'), [layout]);
+
   const next = getStage(s.stage);
+  const squadIds = s.squad.slots.filter((x): x is string => !!x && !!s.heroes[x]);
   const myPower = teamPower(playerTeam(s));
   const enemyPower = teamPower(next.team);
-  const squadIds = s.squad.slots.filter(Boolean) as string[];
-  const lead = squadIds[0];
-  const questsReady = [...DAILY_QUESTS, BONUS_QUEST].filter((q) => claimable(s, q)).length;
-  const questsDone = s.quests.claimed.length;
-  const fastCost = fastRewardCost();
-
-  const claim = (e: MouseEvent) => {
-    if (p.yul <= 0) {
-      toast('The chest is still empty — check back soon!');
-      return;
-    }
-    const got = claimAfk(now);
-    sfx.coin();
-    const rect = (e.currentTarget as Element).getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const items = Array.from({ length: 14 }, (_, i) => ({
-      id: Date.now() + i,
-      kind: (['yul', 'essence', 'gems'] as const)[i % 3],
-      dx: (Math.random() - 0.3) * 260,
-      dy: -260 - Math.random() * 200,
-      x,
-      y,
-    }));
-    setBursts(items);
-    setTimeout(() => setBursts([]), 1000);
-    toast(`+${fmt(got.yul)} Yul · +${fmt(got.essence)} Essence${got.gems ? ` · +${got.gems} Gems` : ''}`);
+  const chestReady = afkPending().hours >= CHEST_READY_HOURS;
+  const openAfk = () => {
+    sfx.click();
+    haptic('tap');
+    setAfk(true);
   };
 
   return (
-    <div class="screen">
-      <div class="home-scene">
-        <HideoutScene />
-        <div class="home-title">
+    <div class="screen hub">
+      <EventRail nav={nav} s={s} />
+
+      <div class="hub-map" style={{ aspectRatio: `${MAP_W} / ${layout.height - CROP}` }}>
+        <Backdrop height={layout.height} gateY={layout.gateY} spurs={spurs} top={CROP} />
+
+        <div class="hub-cloud c1" aria-hidden="true" />
+        <div class="hub-cloud c2" aria-hidden="true" />
+
+        <div class="hub-title" style={{ top: py(f, CROP + 12) }}>
           <h1>
             BLACK CLOVER
             <em>GRIMOIRE SQUADS</em>
           </h1>
           <span class="fan-tag">Unofficial fan game</span>
         </div>
-        <div class="home-squad">
-          {squadIds.slice(1, 3).map((id) => (
-            <div class="idle" key={id}>
-              <CharacterArt id={id} mode="full" />
-            </div>
-          ))}
-          {lead && (
-            <div class="idle lead">
-              <CharacterArt id={lead} mode="full" />
-            </div>
-          )}
-          {squadIds.slice(3, 5).map((id) => (
-            <div class="idle" key={id}>
-              <CharacterArt id={id} mode="full" />
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <div class="panel afk-card" style={{ marginTop: 14 }}>
-        <Chest pct={p.hours / AFK_CAP_HOURS} onClick={claim as any} />
-        <div class="afk-info">
-          <div class="spread">
-            <h3 class="comic" style={{ fontSize: 20, color: 'var(--gold)' }}>
-              AFK Rewards
-            </h3>
-            <span class="small-text muted">
-              {formatDuration(p.hours * 3600000)} / {AFK_CAP_HOURS}h
-            </span>
-          </div>
-          <div class="bar" style={{ margin: '4px 0' }}>
-            <i style={{ width: `${(p.hours / AFK_CAP_HOURS) * 100}%`, background: p.capped ? 'linear-gradient(90deg,#ff4b5c,#ffc531)' : undefined }} />
-          </div>
-          <div class="afk-yields">
-            <span>
-              <CurrencyIcon kind="yul" />
-              {fmt(p.yul)}
-            </span>
-            <span>
-              <CurrencyIcon kind="essence" />
-              {fmt(p.essence)}
-            </span>
-            <span>
-              <CurrencyIcon kind="gems" />
-              {fmt(p.gems)}
-            </span>
-          </div>
-          <div class="row">
-            <button class="btn green small" style={{ flex: 1 }} onClick={claim as any}>
-              Collect
-            </button>
-            <button
-              class="btn blue small"
-              disabled={fastCost === null || s.currencies.gems < (fastCost ?? 0)}
-              onClick={() => {
-                const r = fastReward();
-                if (r) {
-                  sfx.coin();
-                  toast(`Fast Reward! +${fmt(r.yul)} Yul · +${fmt(r.essence)} Essence`);
-                }
-              }}
+        {LAMPS.map(([x, y], i) => (
+          <span key={i} class="hub-glow" style={{ left: px(x), top: py(f, y - 35), animationDelay: `${-i * 0.9}s` }} aria-hidden="true" />
+        ))}
+        {[
+          [120, 520],
+          [300, 660],
+          [60, 800],
+          [250, 930],
+          [140, 1090],
+          [340, 1150],
+        ].map(([x, y], i) =>
+          y < layout.gateY - 20 ? <span key={`f${i}`} class="hub-firefly" style={{ left: px(x), top: py(f, y), animationDelay: `${-i * 1.3}s` }} aria-hidden="true" /> : null,
+        )}
+
+        <Landmark
+          f={f}
+          {...SUMMON_SPOT}
+          art="grimoire"
+          idx={0}
+          id="summon"
+          title="Summon"
+          icon="📖"
+          badge={s.currencies.tickets > 0}
+          aria={`Grimoire Tower: summon heroes${s.currencies.tickets > 0 ? `, ${s.currencies.tickets} tickets` : ''}`}
+          onTap={() => nav.go('summon')}
+        >
+          <span class="lm-beacon" aria-hidden="true">
+            <span class="lm-ring" />
+            <FloatingGrimoire />
+          </span>
+        </Landmark>
+
+        <Landmark
+          f={f}
+          {...HIDEOUT_SPOT}
+          art="hideout"
+          idx={1}
+          id="hideout"
+          title="Hideout"
+          icon="🐂"
+          badge={chestReady}
+          aria={`Black Bulls hideout: AFK chest${chestReady ? ', rewards ready' : ''}`}
+          onTap={openAfk}
+        >
+          <span class={`lm-chest ${chestReady ? 'ready' : ''}`} aria-hidden="true">
+            <ChestArt pct={chestReady ? 1 : 0.2} />
+          </span>
+        </Landmark>
+
+        <SquadIdle f={f} ids={squadIds} power={myPower} onOpen={() => nav.go('squad')} />
+
+        {layout.placements.map(({ id, plot }, i) => {
+          const d = SCREEN_MAP[id as ScreenId];
+          if (!d) return null;
+          const lock = unlockText(d.unlockStage, s.stage);
+          const badge = !lock && safeBadge(d, s);
+          return (
+            <Landmark
+              key={id}
+              f={f}
+              x={plot.x}
+              y={plot.y}
+              w={plot.w}
+              art={SCREEN_ART[id] ?? 'cottage'}
+              idx={i + 2}
+              id={id}
+              title={d.title}
+              icon={d.icon}
+              lock={lock}
+              badge={badge}
+              aria={`${d.title}: ${d.blurb}${lock ? ` Locked. ${lock} to unlock.` : badge ? ' Reward ready.' : ''}`}
+              onTap={() => nav.open(d.id)}
             >
-              ⚡ {FAST_REWARD_HOURS}h {fastCost === null ? '(0 left)' : fastCost === 0 ? 'FREE' : <><CurrencyIcon kind="gems" size={14} />{fastCost}</>}
-            </button>
-          </div>
-          <div class="small-text muted" style={{ marginTop: 4 }}>
-            Earning {fmt(rates.yul)} Yul · {fmt(rates.essence)} Essence · {rates.gems} Gems per hour
-          </div>
-        </div>
+              {!SCREEN_ART[id] && (
+                <span class="lm-sign" aria-hidden="true">
+                  {d.icon}
+                </span>
+              )}
+            </Landmark>
+          );
+        })}
+
+        <Landmark
+          f={f}
+          x={200}
+          y={layout.gateY}
+          w={150}
+          art="gate"
+          idx={12}
+          id="campaign"
+          title="Campaign"
+          icon="⚔️"
+          sub={`Next: ${next.label}`}
+          aria={`Campaign gate. Next stage ${next.label}`}
+          onTap={() => nav.go('campaign')}
+        />
       </div>
 
-      <div class="panel stage-card">
-        <div class="stage-num">{next.label}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div class="comic" style={{ fontSize: 18 }}>
-            {next.name}
-          </div>
-          <div class="small-text">
-            <span class="power">⚡{fmt(myPower)}</span> <span class="muted">vs</span>{' '}
-            <span class="power" style={{ color: myPower >= enemyPower ? '#7dff9b' : '#ff8a8a' }}>
-              ⚡{fmt(enemyPower)}
+      <div class="hub-dock">
+        <DockChest onOpen={openAfk} />
+        <div class="dock-stage">
+          <button class="dock-stage-info" onClick={() => nav.go('campaign')} aria-label={`Campaign map. Next stage ${next.label}, ${next.name}`}>
+            <span class="dock-stage-num">{next.label}</span>
+            <span class="dock-stage-text">
+              <b>{next.name}</b>
+              <span class="small-text">
+                <span class="power">⚡{fmt(myPower)}</span> <span class="muted">vs</span>{' '}
+                <span class="power" style={{ color: myPower >= enemyPower ? '#7dff9b' : '#ff8a8a' }}>
+                  ⚡{fmt(enemyPower)}
+                </span>
+              </span>
             </span>
-          </div>
-        </div>
-        <button class="btn red" onClick={() => nav.fight(s.stage)}>
-          Battle!
-        </button>
-      </div>
-
-      <div class="row" style={{ marginTop: 12, alignItems: 'stretch' }}>
-        <button class="panel" style={{ flex: 1, textAlign: 'left', cursor: 'pointer', margin: 0 }} onClick={nav.openQuests}>
-          <div class="comic" style={{ fontSize: 18, color: 'var(--gold)' }}>
-            📜 Daily Quests
-          </div>
-          <div class="small-text">
-            {questsDone}/{DAILY_QUESTS.length + 1} done{questsReady ? <b style={{ color: 'var(--green)' }}> · {questsReady} ready!</b> : null}
-          </div>
-        </button>
-        <button class="panel" style={{ flex: 1, textAlign: 'left', cursor: 'pointer', margin: 0 }} onClick={() => nav.go('summon')}>
-          <div class="comic" style={{ fontSize: 18, color: 'var(--gold)' }}>
-            📖 Summon
-          </div>
-          <div class="small-text">
-            {s.currencies.tickets} tickets · {fmt(s.currencies.gems)} gems
-          </div>
-        </button>
-      </div>
-
-      <div class="panel" style={{ marginTop: 12 }}>
-        <h3 class="panel-title">Kingdom</h3>
-        <div class="hub-grid">
-          {SCREENS.map((d) => {
-            const locked = (d.unlockStage ?? 0) > s.stage;
-            return (
-              <button key={d.id} class={`hub-tile ${locked ? 'locked' : ''}`} onClick={() => nav.open(d.id)}>
-                <span class="hub-ico">{locked ? '🔒' : d.icon}</span>
-                <span class="hub-name">{d.title}</span>
-                {!locked && d.badge?.(s) && <span class="badge-dot" />}
-              </button>
-            );
-          })}
+          </button>
+          <button
+            class="btn red dock-go"
+            onClick={() => {
+              if (!squadIds.length) {
+                toast('Add heroes to your squad first!', 'bad');
+                nav.go('squad');
+              } else nav.fight(s.stage);
+            }}
+            aria-label={`Battle stage ${next.label}`}
+          >
+            Battle!
+          </button>
         </div>
       </div>
 
-      {bursts.map((b) => (
-        <div class="coin-burst" key={b.id} style={{ left: b.x, top: b.y, position: 'fixed', '--dx': `${b.dx}px`, '--dy': `${b.dy}px` } as any}>
-          <CurrencyIcon kind={b.kind} size={22} />
-        </div>
-      ))}
+      {afk && <AfkModal onClose={() => setAfk(false)} />}
     </div>
   );
 }

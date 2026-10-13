@@ -1,0 +1,328 @@
+/* ───────── summon: banner tabs, banner switch, reveal polish ───────── */
+
+.sum-tabs .tab {
+  position: relative;
+  min-height: 44px;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.sum-tab-lbl {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sum-tabs .tab.limited {
+  background: linear-gradient(180deg, #5b2d8f, #2e1550);
+  color: #fff;
+}
+
+.sum-tabs .tab.limited.on {
+  background: linear-gradient(180deg, #ff9ad9, #b46bff 60%, #7d5cff);
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.sum-tab-spark {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  background: #fff3a0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: sum-twinkle 1.8s ease-in-out infinite;
+}
+
+@keyframes sum-twinkle {
+  0%, 100% { transform: scale(0.7) rotate(0deg); opacity: 0.7; }
+  50% { transform: scale(1.15) rotate(45deg); opacity: 1; }
+}
+
+/* banner */
+.sum-banner.from-r {
+  animation: sum-in-r 0.36s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+.sum-banner.from-l {
+  animation: sum-in-l 0.36s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+@keyframes sum-in-r {
+  from { transform: translateX(34px) scale(0.98); opacity: 0; }
+}
+
+@keyframes sum-in-l {
+  from { transform: translateX(-34px) scale(0.98); opacity: 0; }
+}
+
+.sum-banner .b-text {
+  right: 150px;
+  z-index: 2;
+}
+
+.sum-banner .b-text h2 {
+  overflow-wrap: anywhere;
+}
+
+.sum-banner .sum-main {
+  bottom: 22px;
+  animation: sum-float 4.2s ease-in-out infinite;
+}
+
+.sum-banner .sum-side1 {
+  right: 146px;
+  bottom: 40px;
+  animation: sum-float 4.2s ease-in-out -1.4s infinite;
+}
+
+.sum-banner .sum-side2 {
+  right: 96px;
+  bottom: 34px;
+  width: 96px;
+  height: 116px;
+  animation: sum-float 4.2s ease-in-out -2.6s infinite;
+}
+
+.sum-banner .sum-trio {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 260px;
+  right: -20px;
+  bottom: 30px;
+}
+
+.sum-trio > div {
+  width: 92px;
+  height: 112px;
+  margin: 0 -14px;
+  z-index: 1;
+}
+
+.sum-trio > div.mid {
+  width: 120px;
+  height: 150px;
+  z-index: 2;
+}
+
+@keyframes sum-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.sum-tagline.b-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  z-index: 3;
+  border: none;
+  border-top: 3px solid var(--ink);
+  border-radius: 0;
+  background: rgba(8, 5, 14, 0.8);
+  padding: 7px 12px 8px;
+  line-height: 1.35;
+}
+
+.sum-badge.lim {
+  background: linear-gradient(90deg, #ff3d6e, #b46bff);
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.sum-banner.limited::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  pointer-events: none;
+  z-index: 4;
+  animation: sum-shine 4.5s ease-in-out infinite;
+}
+
+@keyframes sum-shine {
+  0%, 55% { transform: translateX(-120%) skewX(-12deg); }
+  100% { transform: translateX(320%) skewX(-12deg); }
+}
+
+.pull-btns .btn.sum-poor {
+  filter: grayscale(0.55) brightness(0.8);
+}
+
+.sum-pity {
+  height: 7px;
+  max-width: 230px;
+  margin: 3px 0 7px;
+  border-width: 1.5px;
+}
+
+.sum-pity > i {
+  transition: width 0.6s ease-out;
+}
+
+/* ───────── reveal ───────── */
+
+.sum-book {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sum-book-text {
+  font-size: 22px;
+  margin-top: 10px;
+}
+
+.sum-skip {
+  margin-top: 6px;
+  opacity: 0.75;
+}
+
+.reveal-SSR .sum-book .book,
+.reveal-UR .sum-book .book {
+  animation: bookglow 1.6s ease-in-out forwards, sum-shake 0.1s linear 0.85s 7;
+}
+
+@keyframes sum-shake {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -4px 2px; }
+  75% { translate: 4px -2px; }
+}
+
+.sum-splash {
+  border: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.sum-splash > * {
+  position: relative;
+}
+
+.sum-splash .sum-splash-rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 760px;
+  height: 760px;
+  margin: -380px 0 0 -380px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(var(--rc) 0 7deg, transparent 7deg 17deg);
+  opacity: 0.22;
+  -webkit-mask-image: radial-gradient(circle, #000 15%, transparent 62%);
+  mask-image: radial-gradient(circle, #000 15%, transparent 62%);
+  animation: spin 14s linear infinite;
+  pointer-events: none;
+}
+
+.sum-splash .fx-burst {
+  top: 42%;
+}
+
+.sum-splash-tier {
+  font-family: var(--comic);
+  font-size: 34px;
+  letter-spacing: 0.12em;
+  color: var(--rc);
+  text-shadow: 3px 3px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink);
+  animation: sum-tier 0.55s cubic-bezier(0.3, 1.7, 0.5, 1) both;
+}
+
+@keyframes sum-tier {
+  from { transform: scale(2.2) rotate(-8deg); opacity: 0; }
+}
+
+.sum-new-stamp {
+  position: absolute;
+  top: 29%;
+  right: 7%;
+  font-family: var(--comic);
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--red);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 0 10px;
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: rotate(12deg);
+  animation: sum-stamp 0.45s cubic-bezier(0.3, 1.7, 0.5, 1) 0.35s both;
+}
+
+@keyframes sum-stamp {
+  from { transform: rotate(12deg) scale(2.4); opacity: 0; }
+}
+
+.sum-summary {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  animation: fadein 0.3s 0.4s both;
+}
+
+.sum-summary .chip {
+  font-size: 13px;
+  padding: 3px 10px;
+}
+
+.sum-chip-new {
+  background: var(--red);
+  color: #fff;
+}
+
+.flip .sum-flare {
+  position: absolute;
+  inset: -10px;
+  border-radius: 18px;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--fc, #ffc531) 0%, transparent 70%);
+  opacity: 0;
+  z-index: 2;
+  animation: sum-flare 0.9s ease-out calc(var(--fd, 0s) + 0.3s);
+}
+
+.flip.glow-SSR {
+  --fc: rgba(255, 197, 49, 0.9);
+}
+
+.flip.glow-UR {
+  --fc: rgba(255, 61, 110, 0.95);
+}
+
+@keyframes sum-flare {
+  0% { opacity: 0; transform: scale(0.6); }
+  30% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+.sum-again .btn {
+  min-height: 46px;
+}
+
+.sum-again .btn .cost {
+  margin-left: 2px;
+}
+
+.reveal .reveal-grid {
+  row-gap: 20px;
+}

@@ -1,6 +1,9 @@
 import { useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
 import { finishTutorial } from '../../game/store';
+import { haptic } from '../haptics';
+import { sfx } from '../sfx';
+import './settings.css';
 
 const PAGES = [
   {
@@ -36,10 +39,15 @@ const PAGES = [
 export function Tutorial() {
   const [page, setPage] = useState(0);
   const p = PAGES[page];
+  const next = () => {
+    sfx.click();
+    haptic('tap');
+    setPage((n) => Math.min(PAGES.length - 1, n + 1));
+  };
   return (
-    <div class="tutorial">
-      <div class="panel" style={{ position: 'relative', paddingTop: 70 }}>
-        <div style={{ position: 'absolute', top: -70, left: '50%', transform: 'translateX(-50%)', width: 120, height: 140 }}>
+    <div class="tutorial" role="dialog" aria-modal="true" aria-label="How to play">
+      <div class="panel tut-panel" key={page}>
+        <div class="tut-hero">
           <CharacterArt id={p.hero} mode="full" />
         </div>
         <h2 class="panel-title" style={{ justifyContent: 'center', fontSize: 26 }}>
@@ -47,23 +55,38 @@ export function Tutorial() {
         </h2>
         <ul>
           {p.items.map((x, i) => (
-            <li key={i}>{x}</li>
+            <li key={i} style={{ animationDelay: `${0.12 + i * 0.07}s` }}>
+              {x}
+            </li>
           ))}
         </ul>
         <div class="spread">
-          <span class="small-text muted">
-            {page + 1} / {PAGES.length}
+          <span class="tut-dots" aria-label={`Page ${page + 1} of ${PAGES.length}`}>
+            {PAGES.map((_, i) => (
+              <i key={i} class={i === page ? 'on' : i < page ? 'done' : ''} />
+            ))}
           </span>
           {page < PAGES.length - 1 ? (
-            <button class="btn" onClick={() => setPage(page + 1)}>
+            <button class="btn" onClick={next}>
               Next
             </button>
           ) : (
-            <button class="btn green" onClick={finishTutorial}>
+            <button
+              class="btn green"
+              onClick={() => {
+                haptic('success');
+                finishTutorial();
+              }}
+            >
               Let's go!
             </button>
           )}
         </div>
+        {page < PAGES.length - 1 && (
+          <button class="tut-skip" onClick={finishTutorial}>
+            Skip intro
+          </button>
+        )}
       </div>
     </div>
   );

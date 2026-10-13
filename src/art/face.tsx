@@ -97,6 +97,7 @@ interface EyeGeom {
   pupil: 'round' | 'slit' | 'small' | 'none';
   lash?: boolean;
   scale?: number;
+  sclera?: string;
 }
 
 const LID_ROUND = 'M-5.7 -0.4C-5.2 -5.3 -1.8 -7.1 0.9 -6.9C3.5 -6.7 5.2 -4.9 5.5 -2C4.6 -4.5 2.9 -5.4 0.8 -5.5C-1.9 -5.6 -4.1 -4.2 -5.7 -0.4Z';
@@ -145,6 +146,12 @@ function eyeGeom(style: EyeStyle, lashes: boolean): EyeGeom {
         cover: 'M-7 -9L-5.8 -0.8C-5 -4.8 -1.8 -6 0.9 -5.8C3.5 -5.6 5.1 -4.2 5.5 -1.4L7 -1.4L7 -9Z',
         irisRx: 3.5, irisRy: 4.8, pupil: 'round', lash: true,
       };
+    case 'demon':
+      return {
+        lid: 'M-6 -2.6C-4.6 -5.6 -1.4 -6.2 1.6 -5C3.4 -4.2 4.8 -2.8 5.6 -0.6C4.4 -2.3 3 -3.2 1.3 -3.7C-1.6 -4.6 -4.2 -4.4 -6 -2.6Z',
+        cover: 'M-7 -9L-6 -2.6C-4.6 -5.6 -1.4 -6.2 1.6 -5C3.4 -4.2 4.8 -2.8 5.6 -0.6L7 -0.6L7 -9Z',
+        irisRx: 3.3, irisRy: 4.4, pupil: 'slit', lash: lashes, sclera: '#1e1228',
+      };
     case 'crazy':
       return {
         lid: 'M-6 -1.8C-4.8 -5.6 -1.4 -6.6 1.4 -6C3.6 -5.5 5 -4 5.6 -1.6C4.4 -3.4 3 -4.2 1.2 -4.5C-1.8 -5 -4.2 -4.2 -6 -1.8Z',
@@ -182,12 +189,12 @@ function oneEye(spec: Spec, cx: number, side: -1 | 1): El {
   const g = eyeGeom(style, !!spec.eyes.lashes);
   const sc = g.scale || 1;
   const ix = 0.6, iy = 0.7;
-  const pupilFill = mix(iris, OUT, 0.78);
+  const pupilFill = g.sclera ? tint(iris, 0.75) : mix(iris, OUT, 0.78);
   const skin = (spec.face || []).includes('pale') ? spec.skin : spec.skin;
   return (
     <g transform={`translate(${cx} ${EYE_Y}) scale(${sx * sc} ${sc})`}>
       {/* sclera */}
-      <path d="M-4.9 -0.4C-4.9 -4.6 -2.5 -6 0.2 -6C2.8 -6 4.9 -4.5 4.9 -0.4C4.9 3.6 2.6 5.9 0 5.9C-2.6 5.9 -4.9 3.6 -4.9 -0.4Z" fill="#fff" stroke="none" />
+      <path d="M-4.9 -0.4C-4.9 -4.6 -2.5 -6 0.2 -6C2.8 -6 4.9 -4.5 4.9 -0.4C4.9 3.6 2.6 5.9 0 5.9C-2.6 5.9 -4.9 3.6 -4.9 -0.4Z" fill={g.sclera || '#fff'} stroke="none" />
       {/* iris */}
       <ellipse cx={ix} cy={iy} rx={g.irisRx} ry={g.irisRy} fill={iris} stroke-width={0.9} />
       <ellipse cx={ix} cy={iy - g.irisRy * 0.42} rx={g.irisRx * 0.92} ry={g.irisRy * 0.55} fill={shade(iris, 0.38)} stroke="none" />
@@ -392,6 +399,21 @@ export function faceMarks(spec: Spec): El | null {
       </g>,
     );
   }
+  if (f.includes('blackMarks')) {
+    out.push(
+      <path key="bm" fill="#120c18" stroke="none" d="M31.6 47L38.6 48.4L32.4 50.6ZM32.6 51.6L38 51.2L33.6 53.8ZM69 47L62.4 48.4L68.4 50.6ZM68 51.6L63 51.2L67.2 53.8ZM48.6 58.4L51.6 55.6L54.6 58.4L51.6 57.2Z" />,
+    );
+  }
+  if (f.includes('facePaint')) {
+    out.push(
+      <path key="fp" fill="#2f7a3e" stroke="none" d={`M${EYE_L - 2.6} ${EYE_Y + 6.2}L${EYE_L - 0.6} ${EYE_Y + 6.2}L${EYE_L - 1.8} ${EYE_Y + 13}ZM${EYE_L + 1.2} ${EYE_Y + 6.2}L${EYE_L + 2.8} ${EYE_Y + 6.2}L${EYE_L + 2} ${EYE_Y + 10.4}ZM${EYE_R - 1.8} ${EYE_Y + 6.2}L${EYE_R + 0.2} ${EYE_Y + 6.2}L${EYE_R - 0.6} ${EYE_Y + 13}ZM${EYE_R + 2} ${EYE_Y + 6.2}L${EYE_R + 3.6} ${EYE_Y + 6.2}L${EYE_R + 2.8} ${EYE_Y + 10.4}Z`} />,
+    );
+  }
+  if (f.includes('aged')) {
+    out.push(
+      <path key="ag" fill="none" stroke={shade(spec.skin, 0.4)} stroke-width={0.9} d={`M${NOSE[0] - 5.6} ${NOSE[1] + 1}Q${NOSE[0] - 7} ${NOSE[1] + 3.6} ${NOSE[0] - 5.8} ${NOSE[1] + 6}M${NOSE[0] + 4.8} ${NOSE[1] + 1}Q${NOSE[0] + 6} ${NOSE[1] + 3.6} ${NOSE[0] + 5} ${NOSE[1] + 6}M${EYE_L - 3} ${EYE_Y + 7.6}Q${EYE_L} ${EYE_Y + 8.8} ${EYE_L + 3} ${EYE_Y + 7.6}`} />,
+    );
+  }
   return out.length ? <g>{out}</g> : null;
 }
 
@@ -500,6 +522,23 @@ export function faceGear(spec: Spec): El | null {
         <circle cx={MOUTH[0] + 11} cy={MOUTH[1] + 2.5} r={1.2} fill="#ff6a2a" stroke="none" />
         <path d={`M${MOUTH[0] + 11.4} ${MOUTH[1] + 0.6}Q${MOUTH[0] + 13.6} ${MOUTH[1] - 3} ${MOUTH[0] + 11.6} ${MOUTH[1] - 5.4}Q${MOUTH[0] + 9.8} ${MOUTH[1] - 8} ${MOUTH[0] + 12.4} ${MOUTH[1] - 10.6}`} stroke="#d8d2e6" stroke-width={1.2} fill="none" opacity={0.7} />
       </g>,
+    );
+  }
+  if (f.includes('spectacles')) {
+    out.push(
+      <g key="spc" fill="#d8ecff" fill-opacity={0.22} stroke="#c9a24a" stroke-width={1.1}>
+        <circle cx={EYE_L + 0.6} cy={EYE_Y + 1.6} r={4.2} />
+        <circle cx={EYE_R + 0.2} cy={EYE_Y + 1.6} r={3.9} />
+        <path d={`M${EYE_L + 4.8} ${EYE_Y + 0.8}Q${(EYE_L + EYE_R) / 2 + 0.4} ${EYE_Y - 0.8} ${EYE_R - 3.7} ${EYE_Y + 0.8}M${EYE_L - 3.6} ${EYE_Y + 0.6}L31 ${EYE_Y - 1}M${EYE_R + 4.1} ${EYE_Y + 0.6}L69.4 ${EYE_Y - 1}`} fill="none" />
+        <path d={`M${EYE_L - 1.4} ${EYE_Y + 3.4}L${EYE_L + 1} ${EYE_Y - 0.4}`} fill="none" stroke="#fff" stroke-width={0.8} />
+      </g>,
+    );
+  }
+  if (f.includes('mustache')) {
+    const hc = spec.hair.shade || shade(spec.hair.color, 0.3);
+    const [mx, my] = MOUTH;
+    out.push(
+      <path key="mus" fill={hc} stroke-width={0.8} d={`M${mx - 5.6} ${my - 1}Q${mx - 3} ${my - 3.8} ${mx} ${my - 2.6}Q${mx + 3} ${my - 3.8} ${mx + 5.6} ${my - 1}Q${mx + 3} ${my - 2.2} ${mx} ${my - 1.6}Q${mx - 3} ${my - 2.2} ${mx - 5.6} ${my - 1}Z`} />,
     );
   }
   return out.length ? <g>{out}</g> : null;

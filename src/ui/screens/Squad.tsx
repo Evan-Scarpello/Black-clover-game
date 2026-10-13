@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
 import { FACTIONS, FORMATIONS, FORMATION_MAP } from '../../data/formations';
 import { getHero } from '../../data/heroes';
 import { teamPower } from '../../game/power';
-import { fmt, heroPower } from '../../game/stats';
-import { autoFill, playerTeam, setFormation, setSlot, useGame } from '../../game/store';
+import { heroPower } from '../../game/stats';
+import { autoFill, playerTeam, setFormation, setSlot, swapSlots, useGame } from '../../game/store';
 import { teamBonuses } from '../../game/team';
 import type { Row, StatMods } from '../../game/types';
 import type { Nav } from '../nav';
-import { HeroCard, toast } from '../components/common';
+import { AnimatedNumber, HeroCard, toast } from '../components/common';
+import { captureRects, playFlip, type Rects } from '../flip';
+import { haptic } from '../haptics';
 import { sfx } from '../sfx';
+import { assignTarget, initialSelection, nextEmpty, slotTap } from '../squadLogic';
+import './squad.css';
 
 const MOD_LABEL: Record<keyof StatMods, string> = {
   hp: 'HP',
@@ -47,13 +51,26 @@ export function MiniFormation({ rows }: { rows: Row[] }) {
 
 export function Squad(_: { nav: Nav }) {
   const s = useGame();
-  const formation = FORMATION_MAP[s.squad.formation];
-  const [sel, setSel] = useState<number>(() => Math.max(0, s.squad.slots.findIndex((x) => !x)));
+  const formation = FORMATION_MAP[s.squad.formation] ?? FORMATIONS[0];
+  const [sel, setSel] = useState<number>(() => initialSelection(s.squad.slots));
+  const [over, setOver] = useState<number>(-1);
+  const [dragFrom, setDragFrom] = useState<number>(-1);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const flipBefore = useRef<Rects | null>(null);
+  const drag = useRef<{ id: number; slot: number; x0: number; y0: number; el: HTMLElement; on: boolean; over: number } | null>(null);
   const team = playerTeam(s);
   const power = teamPower(team);
-  const bonus = useMemo(() => teamBonuses(team.members.map((m) => m.heroId)), [s.squad.slots.join()]);
+  const slotsKey = s.squad.slots.join();
+  const bonus = useMemo(() => teamBonuses(team.members.map((m) => m.heroId)), [slotsKey]);
 
   const roster = Object.values(s.heroes)
+    .filter((h) => {
+      try {
+        return !!getHero(h.id);
+      } catch {
+        return false;
+      }
+    })
     .map((h) => ({ h, p: heroPower(getHero(h.id), h.level, h.stars) }))
     .sort((a, b) => b.p - a.p);
 
@@ -69,27 +86,154 @@ export function Squad(_: { nav: Nav }) {
   place(backSlots, 24);
   place(frontSlots, 62);
 
-  const assign = (id: string) => {
-    sfx.click();
-    setSlot(sel, id);
-    const next = s.squad.slots.findIndex((x, i) => !x && i !== sel);
-    if (next >= 0) setSel(next);
+  // FLIP: units glide to their new spots after swaps, assignments and formation changes.
+  const capture = () => {
+    flipBefore.current = captureRects(boardRef.current);
+  };
+  useLayoutEffect(() => {
+    if (!flipBefore.current) return;
+    playFlip(boardRef.current, flipBefore.current);
+    flipBefore.current = null;
+  }, [slotsKey, formation.id]);
+
+  // Drop a stale selection if the squad changed elsewhere (auto-fill, another screen).
+  useEffect(() => {
+    if (sel >= formation.rows.length) setSel(-1);
+  }, [formation.id]);
+
+  const doSwap = (a: number, b: number) => {
+    capture();
+    swapSlots(a, b);
+    sfx.swap();
+    haptic('light');
+    setSel(-1);
   };
 
+  const tapSlot = (slot: number) => {
+    const act = slotTap(sel, slot, s.squad.slots);
+    if (act.kind === 'swap') doSwap(act.a, act.b);
+    else {
+      sfx.click();
+      haptic('tap');
+      setSel(act.kind === 'select' ? act.slot : -1);
+    }
+  };
+
+  const assign = (id: string) => {
+    const target = assignTarget(sel, s.squad.slots);
+    if (target < 0) {
+      const at = s.squad.slots.indexOf(id);
+      if (at >= 0) setSel(at);
+      else toast('Tap a squad slot first, then pick a hero for it.');
+      sfx.click();
+      return;
+    }
+    if (s.squad.slots[target] === id) return;
+    capture();
+    sfx.swap();
+    haptic('light');
+    setSlot(target, id);
+    setSel(nextEmpty(s.squad.slots, target));
+  };
+
+  // Drag a unit onto another slot to swap them.
+  const onUnitDown = (slot: number) => (e: PointerEvent) => {
+    if (e.button > 0) return;
+    const el = e.currentTarget as HTMLElement;
+    drag.current = { id: e.pointerId, slot, x0: e.clientX, y0: e.clientY, el, on: false, over: -1 };
+  };
+  const onUnitMove = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.on) {
+      if (Math.hypot(dx, dy) < 9) return;
+      d.on = true;
+      try {
+        d.el.setPointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+      setDragFrom(d.slot);
+      haptic('tap');
+    }
+    d.el.style.translate = `${dx}px ${dy}px`;
+    let target = -1;
+    const hit = document.elementsFromPoint(e.clientX, e.clientY);
+    for (const h of hit) {
+      if (d.el.contains(h)) continue;
+      const slotEl = (h as Element).closest?.('[data-slot]');
+      if (slotEl && boardRef.current?.contains(slotEl)) {
+        target = Number(slotEl.getAttribute('data-slot'));
+        break;
+      }
+    }
+    if (target === d.slot) target = -1;
+    if (target !== d.over) {
+      d.over = target;
+      setOver(target);
+    }
+  };
+  const onUnitUp = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    if (!d.on) return; // a plain tap: the click handler takes it
+    setDragFrom(-1);
+    setOver(-1);
+    // Glide home (or to the new slot) from wherever the finger let go.
+    const target = d.over;
+    capture();
+    d.el.style.translate = '';
+    if (target >= 0) doSwap(d.slot, target);
+    else {
+      playFlip(boardRef.current, flipBefore.current ?? new Map());
+      flipBefore.current = null;
+    }
+    // Swallow the click that follows a drag.
+    const stop = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    d.el.addEventListener('click', stop, { capture: true, once: true });
+    setTimeout(() => d.el.removeEventListener('click', stop, { capture: true }), 0);
+  };
+
+  const pickFormation = (id: string, locked: boolean, label: string, name: string) => {
+    if (locked) {
+      toast(`Clear stage ${label} to unlock ${name}`);
+      haptic('error');
+      return;
+    }
+    if (id === formation.id) return;
+    capture();
+    setFormation(id);
+    sfx.swap();
+    haptic('light');
+  };
+
+  const selHero = sel >= 0 ? s.squad.slots[sel] : null;
+
   return (
-    <div class="screen">
+    <div class="screen squad-screen">
       <div class="spread" style={{ marginBottom: 10 }}>
         <div>
           <div class="small-text muted">Squad Power</div>
           <div class="power" style={{ fontSize: 30 }}>
-            ⚡{fmt(power)}
+            ⚡<AnimatedNumber value={power} />
           </div>
         </div>
         <button
           class="btn blue"
           onClick={() => {
+            if (!roster.length) return toast('Summon some heroes first!');
+            capture();
             autoFill();
-            toast('Strongest squad assembled!');
+            setSel(-1);
+            sfx.swap();
+            haptic('success');
+            toast('Strongest squad assembled!', 'good');
           }}
         >
           Auto-Fill
@@ -105,7 +249,8 @@ export function Squad(_: { nav: Nav }) {
               <button
                 key={f.id}
                 class={`formation-card ${f.id === formation.id ? 'on' : ''} ${locked ? 'locked' : ''}`}
-                onClick={() => (locked ? toast(`Clear stage ${clearLabel(f.unlockStage)} to unlock ${f.name}`) : setFormation(f.id))}
+                aria-pressed={f.id === formation.id}
+                onClick={() => pickFormation(f.id, locked, clearLabel(f.unlockStage), f.name)}
               >
                 <div class="fname">{f.name}</div>
                 <MiniFormation rows={f.rows} />
@@ -114,12 +259,12 @@ export function Squad(_: { nav: Nav }) {
             );
           })}
         </div>
-        <div class="small-text" style={{ marginTop: 4 }}>
+        <div class="small-text sq-desc" key={formation.id}>
           {formation.desc}
         </div>
       </div>
 
-      <div class="board" style={{ marginTop: 12 }}>
+      <div class={`board squad-board ${dragFrom >= 0 ? 'is-dragging' : ''}`} style={{ marginTop: 12 }} ref={boardRef} data-noswipe>
         <div class="lane-label" style={{ left: '24%', color: '#9fd2ff' }}>
           BACK ROW
         </div>
@@ -129,28 +274,78 @@ export function Squad(_: { nav: Nav }) {
         <div class="enemy-side">ENEMY ▶</div>
         {formation.rows.map((row, slot) => {
           const id = s.squad.slots[slot];
-          const h = id ? getHero(id) : null;
           const p = pos[slot];
           return (
-            <div key={slot} class={`slot ${id ? '' : 'empty'} ${sel === slot ? 'sel' : ''}`} style={{ left: `${p.x}%`, top: `${p.y}%` }} onClick={() => setSel(slot)}>
+            <button
+              key={`pad${slot}`}
+              data-flip={`pad${slot}`}
+              data-slot={slot}
+              class={`slot sq-pad ${id ? 'filled' : 'empty'} ${row} ${sel === slot ? 'sel' : ''} ${over === slot ? 'over' : ''}`}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              onClick={() => tapSlot(slot)}
+              aria-label={`${row === 'front' ? 'Front' : 'Back'} row slot ${slot + 1}, ${id ? 'occupied' : 'empty'}${sel === slot ? ', selected' : ''}`}
+              tabIndex={id ? -1 : 0}
+            >
+              <div class="slot-art">{id ? null : '+'}</div>
+            </button>
+          );
+        })}
+        {formation.rows.map((row, slot) => {
+          const id = s.squad.slots[slot];
+          if (!id) return null;
+          let h: ReturnType<typeof getHero> | null = null;
+          try {
+            h = getHero(id);
+          } catch {
+            return null;
+          }
+          const p = pos[slot];
+          return (
+            <button
+              key={id}
+              data-flip={id}
+              data-slot={slot}
+              class={`slot sq-unit ${sel === slot ? 'sel' : ''} ${dragFrom === slot ? 'dragging' : ''} ${over === slot ? 'over' : ''}`}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              onClick={() => tapSlot(slot)}
+              onPointerDown={onUnitDown(slot)}
+              onPointerMove={onUnitMove}
+              onPointerUp={onUnitUp}
+              onPointerCancel={onUnitUp}
+              aria-label={`${h.name}, ${row} row${sel === slot ? ', selected. Tap another slot to swap' : ''}`}
+            >
               <div class="slot-art">
-                {h ? <CharacterArt id={h.id} mode="full" /> : '+'}
-                {h && (h.formation[row] ? <span class="trait-on">✦</span> : null)}
+                <CharacterArt id={h.id} mode="full" />
+                {h.formation[row] ? <span class="trait-on">✦</span> : null}
               </div>
-              {h && <div class="slot-name">{h.name.split(' ')[0]}</div>}
-            </div>
+              <div class="slot-name">{h.name.split(' ')[0]}</div>
+            </button>
           );
         })}
       </div>
 
-      {s.squad.slots[sel] && (
-        <div class="row" style={{ marginTop: 10, justifyContent: 'space-between' }}>
-          <span class="small-text muted">Slot {sel + 1} selected · tap a hero below to swap</span>
-          <button class="btn red small" onClick={() => setSlot(sel, null)}>
+      <div class="row sq-hint" style={{ marginTop: 10, justifyContent: 'space-between', minHeight: 34 }}>
+        <span class="small-text muted">
+          {selHero
+            ? `${getHero(selHero).name.split(' ')[0]} selected · tap a slot to move, or a hero below to swap in`
+            : sel >= 0
+              ? `Slot ${sel + 1} selected · tap a hero below to place them`
+              : 'Tap or drag heroes to rearrange your squad'}
+        </span>
+        {selHero && (
+          <button
+            class="btn red small"
+            onClick={() => {
+              capture();
+              setSlot(sel, null);
+              sfx.click();
+              haptic('light');
+            }}
+          >
             Remove
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div class="panel" style={{ marginTop: 12 }}>
         <h3 class="panel-title">Formation Traits</h3>
@@ -218,9 +413,10 @@ export function Squad(_: { nav: Nav }) {
         <h3 class="panel-title">Your Heroes</h3>
         <div class="hero-grid">
           {roster.map(({ h }) => (
-            <HeroCard key={h.id} id={h.id} owned={h} inSquad={s.squad.slots.includes(h.id)} onClick={() => assign(h.id)} />
+            <HeroCard key={h.id} id={h.id} owned={h} inSquad={s.squad.slots.includes(h.id)} selected={!!selHero && selHero === h.id} onClick={() => assign(h.id)} />
           ))}
         </div>
+        {!roster.length && <div class="empty-hint">No heroes yet. Summon some at the Grimoire Tower!</div>}
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ export type TargetSel =
   | 'allyBack'
   | 'allyLowest'
   | 'allyFaction' // living allies of the caster's faction
+  | 'allyBond' // living allies who share an active bond with the caster (not the caster)
   | 'same'; // the targets of the previous effect
 
 export type StatusId =
@@ -52,7 +53,21 @@ export type StatusId =
   | 'taunt'
   | 'mark'
   | 'reflect'
-  | 'fate';
+  | 'fate'
+  /** Hidden in shadow: enemy basic attacks and single-target picks skip this unit (AoE still hits). */
+  | 'shroud';
+
+/**
+ * Formation-changing modes for the `reform` effect.
+ *  rescue     – own side: swap most-injured front ally with healthiest back ally
+ *  fortify    – own side: Defenders / highest HP to the front, injured & Supports to the back
+ *  rally      – own side: like fortify, but each ally's own formation trait also votes for its row
+ *  shadowSwap – own side: the caster takes the front-row place of the most endangered front ally,
+ *               who retreats to the back row (later 'same' effects target that ally)
+ *  disrupt    – enemy side: push their sturdiest front unit back, pull their weakest back unit forward
+ *  invert     – enemy side: every front-row enemy goes to the back row and every back-row enemy to the front
+ */
+export type ReformMode = 'rescue' | 'fortify' | 'rally' | 'shadowSwap' | 'disrupt' | 'invert';
 
 export type Effect =
   | { kind: 'damage'; target: TargetSel; mult: number; hits?: number; ignoreDef?: number; bonusCrit?: number; lifesteal?: number }
@@ -64,15 +79,11 @@ export type Effect =
   | { kind: 'cleanse'; target: TargetSel }
   | { kind: 'energy'; target: TargetSel; amount: number }
   | { kind: 'revive'; pct: number; fallback?: Effect[] }
-  /**
-   * Formation-changing: rearranges a whole side.
-   *  rescue   – own side: swap most-injured front ally with healthiest back ally
-   *  fortify  – own side: Defenders / highest HP to the front, injured & Supports to the back
-   *  disrupt  – enemy side: push their sturdiest front unit back, pull their weakest back unit forward
-   */
-  | { kind: 'reform'; mode: 'rescue' | 'fortify' | 'disrupt' };
+  /** Formation-changing: rearranges a whole side (see ReformMode). */
+  | { kind: 'reform'; mode: ReformMode };
 
-export type TriggerOn = 'battleStart' | 'basic' | 'ultimate' | 'lowHp' | 'kill' | 'allyDeath' | 'allyLowHp' | 'every';
+/** `death` fires once when the hero itself falls (its effects can still heal / buff living allies). */
+export type TriggerOn = 'battleStart' | 'basic' | 'ultimate' | 'lowHp' | 'kill' | 'allyDeath' | 'allyLowHp' | 'every' | 'death';
 
 export interface Trigger {
   on: TriggerOn;
