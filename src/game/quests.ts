@@ -1,11 +1,11 @@
-import type { Currencies, SaveState } from './state';
+import type { Reward, SaveState } from './state';
 import { today } from './state';
 
 export interface QuestDef {
   id: string;
   text: string;
   goal: number;
-  reward: Partial<Currencies>;
+  reward: Reward;
 }
 
 export const DAILY_QUESTS: QuestDef[] = [

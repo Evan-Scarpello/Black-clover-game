@@ -8,8 +8,9 @@ import type { Combatant, TeamSetup } from './battle';
 import { COST_SINGLE, COST_TEN, getBanners, summon as doSummon, type PullResult } from './gacha';
 import { BONUS_QUEST, DAILY_QUESTS, bump, claimable, refreshDay } from './quests';
 import { randomSeed, rng } from './rng';
-import { loadSave, newSave, writeSave, type Currencies, type SaveState } from './state';
-import { MAX_STARS, heroPower, levelCap, levelUpCost, starUpCost } from './stats';
+import { loadSave, newSave, writeSave, type Currencies, type Reward, type SaveState } from './state';
+import { MAX_STARS, RARITY_INFO, SHARDS_PER_DUPE, addMods, heroPower, levelCap, levelUpCost, starUpCost } from './stats';
+import type { StatMods } from './types';
 import { teamPower } from './power';
 
 let state: SaveState = loadSave();
@@ -69,6 +70,35 @@ export function useGame(): SaveState {
   return state;
 }
 
+// ───────── game events (pass XP, achievements, quests listen here) ─────────
+
+export type GameEvent =
+  | { type: 'battle'; kind: 'campaign' | 'arena' | 'tower' | 'raid'; won: boolean }
+  | { type: 'summon'; count: number }
+  | { type: 'levelUp'; count: number }
+  | { type: 'starUp'; heroId: string }
+  | { type: 'afkClaim' }
+  | { type: 'questClaim'; id: string }
+  | { type: 'feature'; name: string; amount?: number };
+
+const eventListeners = new Set<(e: GameEvent) => void>();
+
+/** Features subscribe at module load (e.g. the Grimoire Pass awarding XP). Listeners
+ * may mutate the save; the emitter commits afterwards. */
+export function onGameEvent(fn: (e: GameEvent) => void) {
+  eventListeners.add(fn);
+}
+
+export function emitGameEvent(e: GameEvent) {
+  eventListeners.forEach((l) => {
+    try {
+      l(e);
+    } catch (err) {
+      console.error('game event listener failed', err);
+    }
+  });
+}
+
 // ───────── session bootstrap ─────────
 
 /** Returns how long the player was away (ms) before this session. */
@@ -86,12 +116,47 @@ export function canAfford(cost: Partial<Currencies>): boolean {
   return (Object.keys(cost) as (keyof Currencies)[]).every((k) => state.currencies[k] >= (cost[k] ?? 0));
 }
 
-function pay(cost: Partial<Currencies>) {
+export function pay(cost: Partial<Currencies>) {
   for (const k of Object.keys(cost) as (keyof Currencies)[]) state.currencies[k] -= cost[k] ?? 0;
 }
 
+const CURRENCY_KEYS: (keyof Currencies)[] = ['yul', 'essence', 'gems', 'tickets', 'medals', 'crests'];
+
 export function grant(r: Partial<Currencies>) {
-  for (const k of Object.keys(r) as (keyof Currencies)[]) state.currencies[k] += Math.floor(r[k] ?? 0);
+  for (const k of CURRENCY_KEYS) if (r[k]) state.currencies[k] += Math.floor(r[k] ?? 0);
+}
+
+/** Grant any reward (currencies, hero pages, pass XP). Does not commit — callers commit once. */
+export function grantReward(r: Reward) {
+  grant(r);
+  if (r.passXp) state.progression.pass.xp += Math.floor(r.passXp);
+  for (const [id, n] of Object.entries(r.shards ?? {})) {
+    const owned = state.heroes[id];
+    if (owned) {
+      owned.shards += n;
+      continue;
+    }
+    const pending = (state.pendingShards[id] ?? 0) + n;
+    if (pending >= SHARDS_PER_DUPE) {
+      state.heroes[id] = { id, level: 1, stars: RARITY_INFO[getHero(id).rarity].startStars, shards: pending - SHARDS_PER_DUPE, obtainedAt: Date.now() };
+      delete state.pendingShards[id];
+    } else state.pendingShards[id] = pending;
+  }
+}
+
+// ───────── team-wide bonuses from features (e.g. clan research) ─────────
+
+const teamBonusProviders: ((s: SaveState) => StatMods)[] = [];
+
+/** Features register stat bonuses that apply to every hero the player fields. */
+export function registerTeamBonus(fn: (s: SaveState) => StatMods) {
+  teamBonusProviders.push(fn);
+}
+
+export function playerTeamBonus(s: SaveState = state): StatMods {
+  const total: StatMods = {};
+  for (const fn of teamBonusProviders) addMods(total, fn(s));
+  return total;
 }
 
 // ───────── heroes ─────────
@@ -110,6 +175,7 @@ export function levelUp(id: string, times = 1): number {
   }
   if (done) {
     bump(state, 'levelup', done);
+    emitGameEvent({ type: 'levelUp', count: done });
     commit();
   }
   return done;
@@ -122,6 +188,7 @@ export function starUp(id: string): boolean {
   if (h.shards < cost) return false;
   h.shards -= cost;
   h.stars++;
+  emitGameEvent({ type: 'starUp', heroId: id });
   commit();
   return true;
 }
@@ -188,13 +255,18 @@ export function autoFill() {
   commit();
 }
 
-export function playerTeam(s: SaveState = state): TeamSetup {
+/** Build a TeamSetup from any lineup of owned heroes (squad, arena defense...). */
+export function lineupTeam(lineup: { formation: string; slots: (string | null)[] }, s: SaveState = state): TeamSetup {
   const members: Combatant[] = [];
-  s.squad.slots.forEach((id, slot) => {
+  lineup.slots.forEach((id, slot) => {
     const h = id ? s.heroes[id] : null;
     if (h) members.push({ heroId: h.id, level: h.level, stars: h.stars, slot });
   });
-  return { members, formation: FORMATION_MAP[s.squad.formation] ?? FORMATIONS[0] };
+  return { members, formation: FORMATION_MAP[lineup.formation] ?? FORMATIONS[0], bonus: playerTeamBonus(s) };
+}
+
+export function playerTeam(s: SaveState = state): TeamSetup {
+  return lineupTeam(s.squad, s);
 }
 
 export function squadPower(): number {
@@ -216,6 +288,7 @@ export function recordBattle(stageIndex: number, won: boolean, ults: number): Ba
   state.stats.battles++;
   state.stats.ults += ults;
   bump(state, 'ult', ults);
+  emitGameEvent({ type: 'battle', kind: 'campaign', won });
   if (!won) {
     commit();
     return null;
@@ -260,6 +333,7 @@ export function claimAfk(now = Date.now()) {
   grant({ yul: p.yul, essence: p.essence, gems: p.gems });
   state.lastAfkClaim = now;
   bump(state, 'afk');
+  emitGameEvent({ type: 'afkClaim' });
   commit();
   return p;
 }
@@ -297,6 +371,7 @@ export function summon(bannerId: string, count: 1 | 10): PullResult[] | null {
   const results = doSummon(state, banner, count, rng(randomSeed()));
   state.stats.pulls += count;
   bump(state, 'summon', count);
+  emitGameEvent({ type: 'summon', count });
   commit();
   return results;
 }
@@ -307,7 +382,8 @@ export function claimQuest(id: string): boolean {
   const q = [...DAILY_QUESTS, BONUS_QUEST].find((x) => x.id === id);
   if (!q || !claimable(state, q)) return false;
   state.quests.claimed.push(id);
-  grant(q.reward);
+  grantReward(q.reward);
+  emitGameEvent({ type: 'questClaim', id });
   commit();
   return true;
 }

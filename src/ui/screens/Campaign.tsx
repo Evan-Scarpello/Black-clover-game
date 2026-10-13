@@ -5,7 +5,7 @@ import { getHero } from '../../data/heroes';
 import { teamPower } from '../../game/power';
 import { fmt } from '../../game/stats';
 import { playerTeam, useGame } from '../../game/store';
-import type { Nav } from '../App';
+import type { Nav } from '../nav';
 import { CurrencyIcon } from '../components/common';
 
 export function Campaign({ nav }: { nav: Nav }) {

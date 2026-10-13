@@ -24,6 +24,7 @@ export function teamPower(team: TeamSetup): number {
     const mods: StatMods = {};
     addMods(mods, def.passive.stats);
     addMods(mods, bonus.perHero[m.heroId]);
+    addMods(mods, team.bonus);
     addMods(mods, team.formation[row]);
     addMods(mods, def.formation[row]);
     total += statPower(applyMods(raw, mods)) * (1 + 0.05 * ({ R: 0, SR: 1, SSR: 2, UR: 3 } as const)[def.rarity]);

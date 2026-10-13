@@ -7,7 +7,7 @@ import { fmt, heroPower } from '../../game/stats';
 import { autoFill, playerTeam, setFormation, setSlot, useGame } from '../../game/store';
 import { teamBonuses } from '../../game/team';
 import type { Row, StatMods } from '../../game/types';
-import type { Nav } from '../App';
+import type { Nav } from '../nav';
 import { HeroCard, toast } from '../components/common';
 import { sfx } from '../sfx';
 

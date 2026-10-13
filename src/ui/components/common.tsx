@@ -3,7 +3,7 @@ import { createPortal, memo } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
 import { getHero } from '../../data/heroes';
-import type { Currencies } from '../../game/state';
+import type { Currencies, Reward } from '../../game/state';
 import { RARITY_INFO, ROLE_INFO, fmt } from '../../game/stats';
 import type { OwnedHero, Rarity } from '../../game/types';
 
@@ -37,6 +37,26 @@ export function CurrencyIcon({ kind, size = 20 }: { kind: keyof Currencies; size
           <path d="M7 5 l2 3" stroke="#d6ffe8" stroke-width="1.6" stroke-linecap="round" />
         </svg>
       );
+    case 'medals':
+      return (
+        <svg class="ico" viewBox="0 0 24 24" style={s}>
+          <path d="M7 2 h4 l1 6 h-4Z M13 2 h4 l-1 6 h-4Z" fill="#e63946" stroke="#0b0710" stroke-width="1.6" stroke-linejoin="round" />
+          <circle cx="12" cy="15" r="7" fill="#c0c7d6" stroke="#0b0710" stroke-width="2" />
+          <path d="M12 10.5 l1.4 2.8 3 .4 -2.2 2.1 .5 3 -2.7-1.4 -2.7 1.4 .5-3 -2.2-2.1 3-.4Z" fill="#ffc531" stroke="#0b0710" stroke-width="0.9" stroke-linejoin="round" />
+        </svg>
+      );
+    case 'crests':
+      return (
+        <svg class="ico" viewBox="0 0 24 24" style={s}>
+          <path d="M12 2 L20 5 V11 C20 16 16.5 19.5 12 22 C7.5 19.5 4 16 4 11 V5Z" fill="#7b4fd0" stroke="#0b0710" stroke-width="2" stroke-linejoin="round" />
+          <g fill="#3ddc84" stroke="#0b0710" stroke-width="0.9">
+            <circle cx="10.2" cy="9.6" r="2" />
+            <circle cx="13.8" cy="9.6" r="2" />
+            <circle cx="10.2" cy="13.2" r="2" />
+            <circle cx="13.8" cy="13.2" r="2" />
+          </g>
+        </svg>
+      );
     case 'tickets':
       return (
         <svg class="ico" viewBox="0 0 24 24" style={s}>
@@ -61,18 +81,42 @@ export function Cost({ kind, amount }: { kind: keyof Currencies; amount: number 
   );
 }
 
-export function RewardList({ r }: { r: Partial<Currencies> }) {
-  const keys = (['yul', 'essence', 'gems', 'tickets'] as const).filter((k) => (r[k] ?? 0) > 0);
+export function RewardList({ r }: { r: Reward }) {
+  const keys = (['yul', 'essence', 'gems', 'tickets', 'medals', 'crests'] as const).filter((k) => (r[k] ?? 0) > 0);
+  const shards = Object.entries(r.shards ?? {}).filter(([, n]) => n > 0);
+  let i = 0;
   return (
     <div class="rewards">
-      {keys.map((k, i) => (
-        <div class="reward" key={k} style={{ animationDelay: `${i * 0.08}s` }}>
+      {keys.map((k) => (
+        <div class="reward" key={k} style={{ animationDelay: `${i++ * 0.08}s` }}>
           <CurrencyIcon kind={k} />+{fmt(r[k]!)}
         </div>
       ))}
+      {shards.map(([id, n]) => (
+        <div class="reward" key={id} style={{ animationDelay: `${i++ * 0.08}s` }}>
+          <span class="reward-face">
+            <CharacterArt id={id} mode="portrait" />
+          </span>
+          +{n} pages
+        </div>
+      ))}
+      {r.passXp ? (
+        <div class="reward" style={{ animationDelay: `${i++ * 0.08}s` }}>
+          🎟️ +{fmt(r.passXp)} Pass XP
+        </div>
+      ) : null}
     </div>
   );
 }
+
+export const CURRENCY_NAMES: Record<keyof Currencies, string> = {
+  yul: 'Yul',
+  essence: 'Essence',
+  gems: 'Gems',
+  tickets: 'Summon Tickets',
+  medals: 'Honor Medals',
+  crests: 'Clan Crests',
+};
 
 // ───────── badges ─────────
 

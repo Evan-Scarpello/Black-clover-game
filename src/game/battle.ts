@@ -21,6 +21,8 @@ export interface Combatant {
 export interface TeamSetup {
   members: Combatant[];
   formation: FormationDef;
+  /** Extra stat mods for every member (e.g. clan research). */
+  bonus?: StatMods;
 }
 
 export interface StatusInst {
@@ -127,6 +129,7 @@ export class Battle {
       const permMods: StatMods = {};
       addMods(permMods, def.passive.stats);
       addMods(permMods, bonus.perHero[m.heroId]);
+      addMods(permMods, team.bonus);
       const front = addMods(addMods({}, team.formation.front), def.formation.front);
       const back = addMods(addMods({}, team.formation.back), def.formation.back);
       const row = team.formation.rows[m.slot] ?? 'back';

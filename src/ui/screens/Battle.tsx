@@ -1,49 +1,16 @@
 import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { CharacterArt } from '../../art/CharacterArt';
-import { getStage } from '../../data/campaign';
 import { Battle, OVERTIME, type BattleEvent, type Unit } from '../../game/battle';
 import { randomSeed } from '../../game/rng';
 import { fmt } from '../../game/stats';
-import { playerTeam, recordBattle, updateSettings, useGame, type BattleReward } from '../../game/store';
-import type { StatusId } from '../../game/types';
+import { updateSettings, useGame } from '../../game/store';
 import { RewardList } from '../components/common';
+import type { BattleOutcome, BattleSpec } from '../nav';
+import { STATUS_ICON, STATUS_TEXT } from '../statusMeta';
 import { sfx } from '../sfx';
 
 const STEP = 0.05;
-
-const STATUS_ICON: Record<StatusId, string> = {
-  stun: '💫',
-  silence: '🤐',
-  burn: '🔥',
-  poison: '☠️',
-  bleed: '🩸',
-  regen: '💚',
-  atkUp: '⚔️',
-  atkDown: '🔻',
-  defUp: '🛡️',
-  defDown: '💔',
-  spdUp: '💨',
-  spdDown: '🐌',
-  taunt: '😤',
-  mark: '🎯',
-  reflect: '🪞',
-  fate: '🧵',
-};
-
-const STATUS_TEXT: Partial<Record<StatusId, string>> = {
-  stun: 'STUN!',
-  silence: 'SILENCE',
-  burn: 'BURN',
-  poison: 'POISON',
-  bleed: 'BLEED',
-  taunt: 'TAUNT!',
-  mark: 'MARKED',
-  atkDown: 'ATK↓',
-  defDown: 'DEF↓',
-  spdDown: 'SPD↓',
-  fate: 'FATE',
-};
 
 const ONOMATOPOEIA = ['POW!', 'BAM!', 'WHAM!', 'KRAK!', 'BOOM!', 'SMASH!'];
 
@@ -88,18 +55,19 @@ const Art = memo(function Art({ id, flip, mode }: { id: string; flip?: boolean; 
   return <CharacterArt id={id} mode={mode ?? 'full'} flip={flip} />;
 });
 
-export function BattleScreen(props: { stage: number; onExit: () => void; onNext: (stage: number) => void }) {
+/** Runs any battle described by a BattleSpec (campaign, arena, tower, clan raid). */
+export function BattleScreen(props: { spec: BattleSpec; onExit: () => void }) {
   const [attempt, setAttempt] = useState(0);
-  return <BattleView key={attempt} {...props} onRetry={() => setAttempt((a) => a + 1)} />;
+  return <BattleView key={`${props.spec.key}#${attempt}`} {...props} onRetry={() => setAttempt((a) => a + 1)} />;
 }
 
-function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit: () => void; onNext: (stage: number) => void; onRetry: () => void }) {
+function BattleView({ spec, onExit, onRetry }: { spec: BattleSpec; onExit: () => void; onRetry: () => void }) {
   const s = useGame();
-  const info = useMemo(() => getStage(stage), [stage]);
   const battleRef = useRef<Battle | null>(null);
   if (!battleRef.current) {
-    const b = new Battle(playerTeam(), info.team, randomSeed());
+    const b = new Battle(spec.ally, spec.enemy, randomSeed());
     b.autoUlt[0] = s.settings.autoUlt;
+    if (spec.timeLimit) b.timeLimit = spec.timeLimit;
     battleRef.current = b;
   }
   const b = battleRef.current;
@@ -113,9 +81,10 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
   const slashes = useRef<Slash[]>([]);
   const unitCls = useRef<Record<string, { cls: string; until: number }>>({});
   const [cutin, setCutin] = useState<Cutin | null>(null);
-  const [banner, setBanner] = useState<{ key: number; text: string; color?: string } | null>({ key: 0, text: info.isBoss ? 'BOSS BATTLE!' : 'FIGHT!' });
+  const [banner, setBanner] = useState<{ key: number; text: string; color?: string } | null>({ key: 0, text: spec.banner ?? 'FIGHT!' });
   const [flash, setFlash] = useState<{ key: number; color: string } | null>(null);
-  const [result, setResult] = useState<{ won: boolean; reward: BattleReward | null; mvp: Unit | null } | null>(null);
+  const [result, setResult] = useState<{ outcome: BattleOutcome; mvp: Unit | null } | null>(null);
+  const finished = useRef(false);
   const pending = useRef<BattleEvent[]>([]);
   const pauseUntil = useRef(performance.now() + 900);
   const nextId = useRef(1);
@@ -255,11 +224,12 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
   };
 
   const finish = () => {
-    const won = b.winner === 0;
-    const reward = recordBattle(stage, won, b.ultsCast[0]);
+    if (finished.current) return;
+    finished.current = true;
+    const outcome = spec.finish(b);
     const mvp = b.units.filter((u) => u.side === 0).sort((x, y) => y.dmgDealt + y.healDone - (x.dmgDealt + x.healDone))[0] ?? null;
-    setResult({ won, reward, mvp });
-    if (won) sfx.win();
+    setResult({ outcome, mvp });
+    if (outcome.won) sfx.win();
     else sfx.lose();
   };
 
@@ -315,8 +285,9 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
 
   // auto-advance after a win
   useEffect(() => {
-    if (result?.won && s.settings.autoAdvance) {
-      const t = setTimeout(() => onNext(stage + 1), 2200);
+    const next = result?.outcome.next;
+    if (result?.outcome.won && next?.auto && s.settings.autoAdvance) {
+      const t = setTimeout(next.go, 2200);
       return () => clearTimeout(t);
     }
   }, [result]);
@@ -332,7 +303,7 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
   const now = performance.now();
   const remaining = Math.max(0, b.timeLimit - b.time);
   const mine = b.units.filter((u) => u.side === 0).sort((x, y) => x.slot - y.slot);
-  const ch = info.chapter;
+  const theme = spec.theme;
 
   return (
     <div class="battle">
@@ -341,7 +312,7 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
           ✕
         </button>
         <div class="stage-lbl">
-          <span style={{ color: 'var(--gold)' }}>{info.label}</span> {info.name}
+          <span style={{ color: 'var(--gold)' }}>{spec.label}</span> {spec.title}
         </div>
         <div class={`timer ${b.time >= OVERTIME ? 'ot' : ''}`}>
           {Math.floor(remaining / 60)}:{Math.floor(remaining % 60).toString().padStart(2, '0')}
@@ -359,17 +330,19 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
         >
           AUTO
         </button>
-        <button class={`toggle ${s.settings.autoAdvance ? 'on' : ''}`} onClick={() => updateSettings({ autoAdvance: !s.settings.autoAdvance })} title="Auto-advance to the next stage after a win">
-          ⏩
-        </button>
+        {spec.allowAutoAdvance && (
+          <button class={`toggle ${s.settings.autoAdvance ? 'on' : ''}`} onClick={() => updateSettings({ autoAdvance: !s.settings.autoAdvance })} title="Auto-advance to the next stage after a win">
+            ⏩
+          </button>
+        )}
         <button class="toggle" onClick={skip}>
           SKIP
         </button>
       </div>
 
       <div class="field" ref={fieldRef}>
-        <div class="field-bg" style={{ background: `linear-gradient(180deg, ${ch.sky[0]}, ${ch.sky[1]})` }}>
-          <div class="ground" style={{ background: `linear-gradient(180deg, ${ch.ground}, #120c1c)` }} />
+        <div class="field-bg" style={{ background: `linear-gradient(180deg, ${theme.sky[0]}, ${theme.sky[1]})` }}>
+          <div class="ground" style={{ background: `linear-gradient(180deg, ${theme.ground}, #120c1c)` }} />
           <div class="hatch" />
         </div>
         <div class="row-label" style={{ left: size.w * 0.14 }}>BACK</div>
@@ -461,7 +434,7 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
           </div>
         )}
 
-        {result && <ResultOverlay result={result} stage={stage} autoAdvance={s.settings.autoAdvance} onExit={onExit} onNext={onNext} onRetry={onRetry} />}
+        {result && <ResultOverlay result={result} autoAdvance={s.settings.autoAdvance} onExit={onExit} onRetry={onRetry} />}
       </div>
 
       <div class="ult-bar">
@@ -497,24 +470,21 @@ function BattleView({ stage, onExit, onNext, onRetry }: { stage: number; onExit:
 
 function ResultOverlay({
   result,
-  stage,
   autoAdvance,
   onExit,
-  onNext,
   onRetry,
 }: {
-  result: { won: boolean; reward: BattleReward | null; mvp: Unit | null };
-  stage: number;
+  result: { outcome: BattleOutcome; mvp: Unit | null };
   autoAdvance: boolean;
   onExit: () => void;
-  onNext: (s: number) => void;
   onRetry: () => void;
 }) {
-  const { won, reward, mvp } = result;
+  const { outcome, mvp } = result;
+  const { won, reward, next } = outcome;
   return (
     <div class="result">
       {won && <div class="burst-bg" />}
-      <h1 class={won ? 'win' : 'lose'}>{won ? 'VICTORY!' : 'DEFEAT'}</h1>
+      <h1 class={won ? 'win' : 'lose'}>{outcome.title ?? (won ? 'VICTORY!' : 'DEFEAT')}</h1>
       {mvp && (
         <div class="mvp">
           <div class="mvp-art">
@@ -533,31 +503,42 @@ function ResultOverlay({
           </div>
         </div>
       )}
-      {won && reward && (
-        <>
-          {reward.firstClear && <div class="chip on">FIRST CLEAR BONUS</div>}
-          <RewardList r={reward} />
-          {reward.unlockedFormation && <div class="chip on" style={{ marginBottom: 10 }}>New formation unlocked: {reward.unlockedFormation}!</div>}
-        </>
+      {outcome.stat && (
+        <div class="result-stat">
+          <span class="muted small-text">{outcome.stat.label}</span>
+          <b class="power" style={{ fontSize: 28 }}>
+            {outcome.stat.value}
+          </b>
+        </div>
       )}
-      {!won && (
+      {outcome.notes?.length ? (
+        <div class="row wrap" style={{ justifyContent: 'center', margin: '6px 0' }}>
+          {outcome.notes.map((n) => (
+            <span class="chip on" key={n}>
+              {n}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {reward && <RewardList r={reward} />}
+      {!won && !outcome.stat && (
         <p class="center" style={{ maxWidth: 300, margin: '10px 0 16px' }}>
           Level up your heroes, try a different formation, or bring a Defender to the front row!
         </p>
       )}
       <div class="row">
         <button class="btn dark" onClick={onExit}>
-          Base
+          Back
         </button>
-        {won ? (
-          <button class="btn green" onClick={() => onNext(stage + 1)}>
-            {autoAdvance ? 'Next ⏩ (auto)' : 'Next Stage'}
+        {next && (won || !(outcome.canRetry ?? true)) ? (
+          <button class="btn green" onClick={next.go}>
+            {next.auto && autoAdvance ? `${next.label} ⏩` : next.label}
           </button>
-        ) : (
+        ) : !won && (outcome.canRetry ?? true) ? (
           <button class="btn" onClick={onRetry}>
             Retry
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );

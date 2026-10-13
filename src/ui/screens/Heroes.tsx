@@ -4,7 +4,7 @@ import { SUMMONABLE, getHero } from '../../data/heroes';
 import { RARITY_INFO, heroPower } from '../../game/stats';
 import { canLevel, useGame } from '../../game/store';
 import type { Role } from '../../game/types';
-import type { Nav } from '../App';
+import type { Nav } from '../nav';
 import { HeroCard } from '../components/common';
 
 type Sort = 'power' | 'rarity' | 'level';

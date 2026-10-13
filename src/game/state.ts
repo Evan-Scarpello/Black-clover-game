@@ -1,3 +1,9 @@
+import { defaultArena, type ArenaSave } from '../features/arena/state';
+import { defaultCampaign, type CampaignSave } from '../features/campaign/state';
+import { defaultClan, type ClanSave } from '../features/clan/state';
+import { defaultDispatch, type DispatchSave } from '../features/dispatch/state';
+import { defaultProgression, type ProgressionSave } from '../features/progression/state';
+import { defaultTower, type TowerSave } from '../features/tower/state';
 import type { OwnedHero } from './types';
 
 export interface Currencies {
@@ -5,6 +11,18 @@ export interface Currencies {
   essence: number;
   gems: number;
   tickets: number;
+  /** Arena currency (Honor Medals). */
+  medals: number;
+  /** Clan currency (Clan Crests). */
+  crests: number;
+}
+
+/** Anything a feature can hand out: currencies, hero grimoire pages, Grimoire Pass XP. */
+export interface Reward extends Partial<Currencies> {
+  /** Grimoire pages (shards) per hero id. Pages for an unowned hero collect in
+   * `pendingShards`; at 10 pages the hero is unlocked (see grantReward in store). */
+  shards?: Record<string, number>;
+  passXp?: number;
 }
 
 export interface Settings {
@@ -23,6 +41,8 @@ export interface SaveState {
   lastAfkClaim: number;
   currencies: Currencies;
   heroes: Record<string, OwnedHero>;
+  /** Grimoire pages for heroes not yet owned (unlock at 10). */
+  pendingShards: Record<string, number>;
   squad: { formation: string; slots: (string | null)[] };
   /** Number of campaign stages cleared (= index of the next stage). */
   stage: number;
@@ -33,6 +53,13 @@ export interface SaveState {
   seenChapter: number;
   tutorialDone: boolean;
   stats: { battles: number; wins: number; ults: number; pulls: number };
+  // Feature slices (each owned by src/features/<name>/state.ts)
+  arena: ArenaSave;
+  clan: ClanSave;
+  tower: TowerSave;
+  dispatch: DispatchSave;
+  progression: ProgressionSave;
+  campaign: CampaignSave;
 }
 
 export const SAVE_KEY = 'black-clover-grimoire-squads/save-v1';
@@ -52,8 +79,9 @@ export function newSave(now = Date.now()): SaveState {
     updatedAt: now,
     lastSeen: now,
     lastAfkClaim: now,
-    currencies: { yul: 8000, essence: 5000, gems: 3000, tickets: 10 },
+    currencies: { yul: 8000, essence: 5000, gems: 3000, tickets: 10, medals: 0, crests: 0 },
     heroes: Object.fromEntries(STARTER_HEROES.map((id) => [id, { id, level: 1, stars: startStars[id], shards: 0, obtainedAt: now }])),
+    pendingShards: {},
     squad: { formation: 'balanced', slots: ['sol', 'asta', 'magna', 'finral', 'charmy'] },
     stage: 0,
     gacha: { pity: 0, mythicPity: 0, total: 0, firstTen: false },
@@ -63,6 +91,12 @@ export function newSave(now = Date.now()): SaveState {
     seenChapter: -1,
     tutorialDone: false,
     stats: { battles: 0, wins: 0, ults: 0, pulls: 0 },
+    arena: defaultArena(),
+    clan: defaultClan(),
+    tower: defaultTower(),
+    dispatch: defaultDispatch(),
+    progression: defaultProgression(),
+    campaign: defaultCampaign(),
   };
 }
 
@@ -80,6 +114,12 @@ export function migrate(raw: any): SaveState {
     fastRewards: { ...base.fastRewards, ...raw.fastRewards },
     settings: { ...base.settings, ...raw.settings },
     stats: { ...base.stats, ...raw.stats },
+    arena: { ...base.arena, ...raw.arena },
+    clan: { ...base.clan, ...raw.clan },
+    tower: { ...base.tower, ...raw.tower },
+    dispatch: { ...base.dispatch, ...raw.dispatch },
+    progression: { ...base.progression, ...raw.progression },
+    campaign: { ...base.campaign, ...raw.campaign },
     heroes: raw.heroes && Object.keys(raw.heroes).length ? raw.heroes : base.heroes,
   };
 }

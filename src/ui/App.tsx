@@ -1,31 +1,26 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { STAGES_PER_CHAPTER } from '../data/campaign';
+import { campaignBattle } from '../features/campaign/adapter';
 import { BONUS_QUEST, DAILY_QUESTS, claimable } from '../game/quests';
 import { fmtShort } from '../game/stats';
-import { afkPending, markChapterSeen, saveNow, startSession, useGame } from '../game/store';
-import { CurrencyIcon, Toasts, formatDuration } from './components/common';
+import { afkPending, getState, markChapterSeen, saveNow, startSession, useGame } from '../game/store';
+import { CurrencyIcon, Modal, Toasts, formatDuration, toast } from './components/common';
+import type { BattleSpec, Nav, ScreenId, Tab } from './nav';
 import { BattleScreen } from './screens/Battle';
 import { Campaign } from './screens/Campaign';
 import { HeroDetail } from './screens/HeroDetail';
 import { Heroes } from './screens/Heroes';
 import { Home } from './screens/Home';
 import { Quests } from './screens/Quests';
+import { SCREEN_MAP } from './screens/registry';
 import { Settings } from './screens/Settings';
 import { Squad } from './screens/Squad';
 import { Story } from './screens/Story';
 import { Summon } from './screens/Summon';
 import { Tutorial } from './screens/Tutorial';
-import { Modal } from './components/common';
 import { sfx } from './sfx';
 
-export type Tab = 'home' | 'heroes' | 'campaign' | 'squad' | 'summon';
-
-export interface Nav {
-  go: (t: Tab) => void;
-  openHero: (id: string) => void;
-  fight: (stage: number) => void;
-  openQuests: () => void;
-}
+export type { Nav, Tab } from './nav';
 
 const NAV: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Base', icon: '🏰' },
@@ -35,15 +30,23 @@ const NAV: { id: Tab; label: string; icon: string }[] = [
   { id: 'summon', label: 'Summon', icon: '📖' },
 ];
 
+interface PageEntry {
+  id: ScreenId;
+  params?: Record<string, unknown>;
+  key: number;
+}
+
 export function App() {
   const s = useGame();
   const [tab, setTab] = useState<Tab>('home');
+  const [stack, setStack] = useState<PageEntry[]>([]);
   const [hero, setHero] = useState<string | null>(null);
-  const [battle, setBattle] = useState<number | null>(null);
+  const [battle, setBattle] = useState<BattleSpec | null>(null);
   const [story, setStory] = useState<{ chapter: number; then: number } | null>(null);
   const [welcome, setWelcome] = useState<number | null>(null);
   const [quests, setQuests] = useState(false);
   const [settings, setSettings] = useState(false);
+  const pageKey = useRef(1);
 
   useEffect(() => {
     const away = startSession();
@@ -64,21 +67,40 @@ export function App() {
   }, []);
 
   const nav: Nav = {
+    tab,
     go: (t) => {
       sfx.click();
+      setStack([]);
       setTab(t);
     },
+    open: (id, params) => {
+      const def = SCREEN_MAP[id];
+      if (!def) return;
+      if ((def.unlockStage ?? 0) > getState().stage) {
+        toast(`${def.title} unlocks after clearing ${def.unlockStage} campaign stages.`);
+        return;
+      }
+      sfx.click();
+      setStack((st) => [...st, { id, params, key: pageKey.current++ }]);
+    },
+    back: () => setStack((st) => st.slice(0, -1)),
     openHero: (id) => setHero(id),
     fight: (stage) => {
       const chapter = Math.floor(stage / STAGES_PER_CHAPTER);
-      if (chapter > s.seenChapter) setStory({ chapter, then: stage });
-      else setBattle(stage);
+      if (chapter > getState().seenChapter) {
+        setBattle(null);
+        setStory({ chapter, then: stage });
+      } else setBattle(campaignBattle(stage, nav));
     },
+    battle: (spec) => setBattle(spec),
+    closeBattle: () => setBattle(null),
     openQuests: () => setQuests(true),
   };
 
   const questBadge = [...DAILY_QUESTS, BONUS_QUEST].some((q) => claimable(s, q));
   const afkFull = afkPending().hours >= 1;
+  const top = stack[stack.length - 1];
+  const TopPage = top ? SCREEN_MAP[top.id] : null;
 
   return (
     <div class="shell">
@@ -105,9 +127,25 @@ export function App() {
         {tab === 'summon' && <Summon nav={nav} />}
       </div>
 
+      {top && TopPage && (
+        <div class="page" key={top.key}>
+          <div class="page-head">
+            <button class="icon-btn" onClick={nav.back} aria-label="Back">
+              ◀
+            </button>
+            <h2 class="page-title">
+              <span>{TopPage.icon}</span> {TopPage.title}
+            </h2>
+          </div>
+          <div class="page-body">
+            <TopPage.component nav={nav} params={top.params} />
+          </div>
+        </div>
+      )}
+
       <nav class="navbar" style={{ gridTemplateColumns: `repeat(${NAV.length}, 1fr)` }}>
         {NAV.map((n) => (
-          <button key={n.id} class={`nav-item ${tab === n.id ? 'active' : ''} ${n.id === 'campaign' ? 'nav-battle' : ''}`} onClick={() => nav.go(n.id)}>
+          <button key={n.id} class={`nav-item ${tab === n.id && !top ? 'active' : ''} ${n.id === 'campaign' ? 'nav-battle' : ''}`} onClick={() => nav.go(n.id)}>
             <span class="nav-ico">{n.icon}</span>
             {n.label}
             {n.id === 'home' && afkFull && tab !== 'home' && <span class="badge-dot" />}
@@ -124,26 +162,13 @@ export function App() {
           chapter={story.chapter}
           onDone={() => {
             markChapterSeen(story.chapter);
-            setBattle(story.then);
+            setBattle(campaignBattle(story.then, nav));
             setStory(null);
           }}
         />
       )}
 
-      {battle !== null && (
-        <BattleScreen
-          key={battle}
-          stage={battle}
-          onExit={() => setBattle(null)}
-          onNext={(next) => {
-            const chapter = Math.floor(next / STAGES_PER_CHAPTER);
-            if (chapter > getSeen()) {
-              setBattle(null);
-              setStory({ chapter, then: next });
-            } else setBattle(next);
-          }}
-        />
-      )}
+      {battle && <BattleScreen key={battle.key} spec={battle} onExit={() => setBattle(null)} />}
 
       {welcome !== null && (
         <Modal center onClose={() => setWelcome(null)}>
@@ -155,6 +180,7 @@ export function App() {
             class="btn green block"
             onClick={() => {
               setWelcome(null);
+              setStack([]);
               setTab('home');
             }}
           >
@@ -167,8 +193,4 @@ export function App() {
       <Toasts />
     </div>
   );
-
-  function getSeen() {
-    return s.seenChapter;
-  }
 }

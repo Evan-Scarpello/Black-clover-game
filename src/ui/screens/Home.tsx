@@ -5,7 +5,8 @@ import { BONUS_QUEST, DAILY_QUESTS, claimable } from '../../game/quests';
 import { fmt } from '../../game/stats';
 import { teamPower } from '../../game/power';
 import { afkPending, claimAfk, fastReward, fastRewardCost, playerTeam, useGame, FAST_REWARD_HOURS } from '../../game/store';
-import type { Nav } from '../App';
+import type { Nav } from '../nav';
+import { SCREENS } from './registry';
 import { CurrencyIcon, formatDuration, toast, useNow } from '../components/common';
 import { sfx } from '../sfx';
 
@@ -239,6 +240,22 @@ export function Home({ nav }: { nav: Nav }) {
             {s.currencies.tickets} tickets · {fmt(s.currencies.gems)} gems
           </div>
         </button>
+      </div>
+
+      <div class="panel" style={{ marginTop: 12 }}>
+        <h3 class="panel-title">Kingdom</h3>
+        <div class="hub-grid">
+          {SCREENS.map((d) => {
+            const locked = (d.unlockStage ?? 0) > s.stage;
+            return (
+              <button key={d.id} class={`hub-tile ${locked ? 'locked' : ''}`} onClick={() => nav.open(d.id)}>
+                <span class="hub-ico">{locked ? '🔒' : d.icon}</span>
+                <span class="hub-name">{d.title}</span>
+                {!locked && d.badge?.(s) && <span class="badge-dot" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {bursts.map((b) => (

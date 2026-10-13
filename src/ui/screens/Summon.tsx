@@ -5,7 +5,7 @@ import { COST_SINGLE, COST_TEN, PITY_LEGENDARY, PITY_MYTHIC, RATES, getBanners, 
 import { RARITY_INFO, fmt } from '../../game/stats';
 import { summon, useGame } from '../../game/store';
 import type { Rarity } from '../../game/types';
-import type { Nav } from '../App';
+import type { Nav } from '../nav';
 import { CurrencyIcon, HeroCard, Modal, Portal, RarityBadge, toast } from '../components/common';
 import { sfx } from '../sfx';
 
